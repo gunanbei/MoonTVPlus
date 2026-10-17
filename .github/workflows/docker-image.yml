@@ -64,7 +64,7 @@ jobs:
         uses: docker/metadata-action@v5
 
         with:
-          images: ghcr.io/mtvpls/moontvplus
+          images: ghcr.io/gunanbei/moontvplus
           tags: |
             type=raw,value=${{ steps.version.outputs.version }},enable={{is_default_branch}}
             type=raw,value=${{ github.event.inputs.tag || 'latest' }},enable={{is_default_branch}}
@@ -78,9 +78,9 @@ jobs:
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
           tags: |
-            ghcr.io/mtvpls/moontvplus:${{ steps.version.outputs.version }}
-            ghcr.io/mtvpls/moontvplus:${{ github.event.inputs.tag || 'latest' }}
-          outputs: type=image,name=ghcr.io/mtvpls/moontvplus,name-canonical=true,push=true
+            ghcr.io/gunanbei/moontvplus:${{ steps.version.outputs.version }}
+            ghcr.io/gunanbei/moontvplus:${{ github.event.inputs.tag || 'latest' }}
+          outputs: type=image,name=ghcr.io/gunanbei/moontvplus,name-canonical=true,push=true
 
       - name: Export digest
         run: |
@@ -146,7 +146,7 @@ jobs:
         uses: dataaxiom/ghcr-cleanup-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          owner: mtvpls
+          owner: gunanbei
           package: moontvplus
           delete-untagged: true
           validate: true
