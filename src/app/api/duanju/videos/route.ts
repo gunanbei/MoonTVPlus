@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 
+import { parseCmsJson } from '@/lib/cms-json';
 import { API_CONFIG, getCacheTime } from '@/lib/config';
 import { getDuanjuSources } from '@/lib/duanju';
 import { SearchResult } from '@/lib/types';
@@ -10,7 +11,7 @@ import { cleanHtmlTags } from '@/lib/utils';
 export const runtime = 'nodejs';
 
 interface CmsVideoItem {
-  vod_id: string | number;
+  vod_id: string;
   vod_name: string;
   vod_pic?: string;
   vod_remarks?: string;
@@ -95,13 +96,13 @@ export async function GET(request: NextRequest) {
       throw new Error('获取短剧列表失败');
     }
 
-    const videoData: CmsVideoResponse = await response.json();
+    const videoData: CmsVideoResponse = parseCmsJson(await response.text());
 
     const results: SearchResult[] = (videoData.list || []).map((item) => {
       const { episodes, episodesTitles } = parseEpisodes(item);
 
       return {
-        id: item.vod_id.toString(),
+        id: item.vod_id,
         title: (item.vod_name || '').trim().replace(/\s+/g, ' '),
         poster: item.vod_pic || '',
         year: item.vod_year ? item.vod_year.match(/\d{4}/)?.[0] || item.vod_year : 'unknown',

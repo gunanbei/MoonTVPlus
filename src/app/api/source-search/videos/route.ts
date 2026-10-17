@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { getAuthInfoFromCookie } from '@/lib/auth';
+import { parseCmsJson } from '@/lib/cms-json';
 import { API_CONFIG, getAvailableApiSites } from '@/lib/config';
 import { SearchResult } from '@/lib/types';
 
 export const runtime = 'nodejs';
 
 interface CmsVideoItem {
-  vod_id: string | number;
+  vod_id: string;
   vod_name: string;
   vod_pic: string;
   vod_remarks?: string;
@@ -74,7 +75,7 @@ export async function GET(request: NextRequest) {
       throw new Error('获取视频列表失败');
     }
 
-    const videoData: CmsVideoResponse = await videoResponse.json();
+    const videoData: CmsVideoResponse = parseCmsJson(await videoResponse.text());
 
     if (!videoData.list || !Array.isArray(videoData.list)) {
       return NextResponse.json({
@@ -105,7 +106,7 @@ export async function GET(request: NextRequest) {
       }
 
       return {
-        id: item.vod_id.toString(),
+        id: item.vod_id,
         title: item.vod_name,
         poster: item.vod_pic || '',
         year: item.vod_year || 'unknown',

@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { getAuthInfoFromCookie } from '@/lib/auth';
+import { parseCmsJson } from '@/lib/cms-json';
 import { API_CONFIG, getAvailableApiSites } from '@/lib/config';
 import { SearchResult } from '@/lib/types';
 
 export const runtime = 'nodejs';
 
 interface CmsVideoItem {
-  vod_id: string | number;
+  vod_id: string;
   vod_name: string;
   vod_pic: string;
   vod_remarks?: string;
@@ -74,7 +75,7 @@ export async function GET(request: NextRequest) {
       throw new Error('搜索失败');
     }
 
-    const searchData: CmsVideoResponse = await searchResponse.json();
+    const searchData: CmsVideoResponse = parseCmsJson(await searchResponse.text());
 
     if (!searchData.list || !Array.isArray(searchData.list)) {
       return NextResponse.json({
@@ -105,7 +106,7 @@ export async function GET(request: NextRequest) {
       }
 
       return {
-        id: item.vod_id.toString(),
+        id: item.vod_id,
         title: item.vod_name,
         poster: item.vod_pic || '',
         year: item.vod_year || 'unknown',

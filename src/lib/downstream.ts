@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { parseCmsJson } from '@/lib/cms-json';
 import { API_CONFIG, ApiSite, getConfig } from '@/lib/config';
 import { getCachedSearchPage, setCachedSearchPage } from '@/lib/search-cache';
 import { SearchResult } from '@/lib/types';
@@ -58,7 +59,7 @@ async function searchWithCache(
       return { results: [] };
     }
 
-    const data = await response.json();
+  const data = parseCmsJson<any>(await response.text());
     if (
       !data ||
       !data.list ||
@@ -225,7 +226,7 @@ export async function getDetailFromApi(
     throw new Error(`详情请求失败: ${response.status}`);
   }
 
-  const data = await response.json();
+  const data = parseCmsJson<any>(await response.text());
 
   if (
     !data ||
@@ -313,7 +314,7 @@ export async function getDetailFromApiV2(
     throw new Error(`详情请求失败: ${response.status}`);
   }
 
-  const data = await response.json();
+  const data = parseCmsJson<any>(await response.text());
 
   if (
     !data ||

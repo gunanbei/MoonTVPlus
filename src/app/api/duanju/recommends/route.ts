@@ -2,6 +2,7 @@
 
 import { NextResponse } from 'next/server';
 
+import { parseCmsJson } from '@/lib/cms-json';
 import { API_CONFIG, getCacheTime } from '@/lib/config';
 import { getDuanjuSources } from '@/lib/duanju';
 import { SearchResult } from '@/lib/types';
@@ -44,7 +45,7 @@ const fetchVideoList = async (api: string, typeId: string | number) => {
     headers: API_CONFIG.search.headers,
   });
   if (!response.ok) return null;
-  const data = await response.json();
+  const data = parseCmsJson<{ list?: ApiSearchItem[] }>(await response.text());
   if (!data?.list || !Array.isArray(data.list)) return null;
   return data.list as ApiSearchItem[];
 };
