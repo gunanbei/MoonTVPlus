@@ -381,11 +381,7 @@ interface SiteConfig {
   TMDBProxy?: string;
   TMDBReverseProxy?: string;
   TMDBImageBaseUrl?: string;
-  BangumiDataSource?:
-    | 'direct'
-    | 'server-proxy'
-    | 'custom-baseurl'
-    | 'sakura';
+  BangumiDataSource?: 'direct' | 'server-proxy' | 'custom-baseurl' | 'sakura';
   BangumiApiBaseUrl?: string;
   BangumiImageBaseUrl?: string;
   BangumiProxy?: string;
@@ -4193,7 +4189,8 @@ const OpenListConfigComponent = ({
                 </div>
 
                 <div className='px-5 py-3 text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-800'>
-                  填写目录路径即可作用于其下所有影片（如 /videos）。更具体的路径优先。改完后点「保存配置」才会生效。
+                  填写目录路径即可作用于其下所有影片（如
+                  /videos）。更具体的路径优先。改完后点「保存配置」才会生效。
                 </div>
 
                 <div className='flex-1 overflow-y-auto px-5 py-4 space-y-2'>
@@ -4426,7 +4423,9 @@ const OpenListConfigComponent = ({
                   <button
                     type='button'
                     onClick={() => {
-                      if (pathMetaRows.some((row) => !(row.path || '').trim())) {
+                      if (
+                        pathMetaRows.some((row) => !(row.path || '').trim())
+                      ) {
                         showError('路径不能为空', showAlert);
                         return;
                       }
@@ -6628,7 +6627,9 @@ const EmbyConfigComponent = ({
                   className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white text-sm'
                 />
                 <p className='text-xs text-gray-500 dark:text-gray-400 mt-1'>
-                  仅用于账号认证登录请求，示例：MediaBrowser Client=&quot;moontvplus&quot;, Device=&quot;Web&quot;, DeviceId=&quot;moontvplus-web&quot;, Version=&quot;1.0.0&quot;
+                  仅用于账号认证登录请求，示例：MediaBrowser
+                  Client=&quot;moontvplus&quot;, Device=&quot;Web&quot;,
+                  DeviceId=&quot;moontvplus-web&quot;, Version=&quot;1.0.0&quot;
                 </p>
               </div>
             </div>
@@ -6690,6 +6691,7 @@ const VideoSourceConfig = ({
   const { isLoading, withLoading } = useLoadingState();
   const [sources, setSources] = useState<DataSource[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingSource, setEditingSource] = useState<DataSource | null>(null);
   const [orderChanged, setOrderChanged] = useState(false);
   const [newSource, setNewSource] = useState<DataSource>({
     name: '',
@@ -6729,9 +6731,14 @@ const VideoSourceConfig = ({
   const [showValidationModal, setShowValidationModal] = useState(false);
   const [showWeightModal, setShowWeightModal] = useState(false);
   const [showSpecialSourcesModal, setShowSpecialSourcesModal] = useState(false);
-  const [showClientAdSourcesModal, setShowClientAdSourcesModal] = useState(false);
-  const [specialSourceDraftApis, setSpecialSourceDraftApis] = useState<string[]>([]);
-  const [clientAdSourceDraftApis, setClientAdSourceDraftApis] = useState<string[]>([]);
+  const [showClientAdSourcesModal, setShowClientAdSourcesModal] =
+    useState(false);
+  const [specialSourceDraftApis, setSpecialSourceDraftApis] = useState<
+    string[]
+  >([]);
+  const [clientAdSourceDraftApis, setClientAdSourceDraftApis] = useState<
+    string[]
+  >([]);
   const [weightDraftSources, setWeightDraftSources] = useState<DataSource[]>(
     []
   );
@@ -6883,7 +6890,6 @@ const VideoSourceConfig = ({
     });
   };
 
-
   const openSpecialSourcesModal = () => {
     setSpecialSourceDraftApis(config?.SpecialSourceApis || []);
     setShowSpecialSourcesModal(true);
@@ -7015,6 +7021,25 @@ const VideoSourceConfig = ({
     });
   };
 
+  const handleStartEditSource = (source: DataSource) => {
+    setNewSource({ ...source });
+    setEditingSource(source);
+    setShowAddForm(true);
+  };
+
+  const handleCancelSourceForm = () => {
+    setShowAddForm(false);
+    setEditingSource(null);
+    setNewSource({
+      name: '',
+      key: '',
+      api: '',
+      detail: '',
+      disabled: false,
+      from: 'custom',
+    });
+  };
+
   const handleAddSource = () => {
     if (!newSource.name || !newSource.key || !newSource.api) return;
     withLoading('addSource', async () => {
@@ -7036,6 +7061,23 @@ const VideoSourceConfig = ({
       setShowAddForm(false);
     }).catch(() => {
       console.error('操作失败', 'add', newSource);
+    });
+  };
+
+  const handleUpdateSource = () => {
+    if (!editingSource || !newSource.name.trim() || !newSource.api.trim())
+      return;
+    withLoading(`updateSource_${editingSource.key}`, async () => {
+      await callSourceApi({
+        action: 'update',
+        key: editingSource.key,
+        name: newSource.name.trim(),
+        api: newSource.api.trim(),
+        detail: newSource.detail?.trim() || '',
+      });
+      handleCancelSourceForm();
+    }).catch(() => {
+      console.error('操作失败', 'update', editingSource.key);
     });
   };
 
@@ -7567,17 +7609,25 @@ const VideoSourceConfig = ({
             {!source.disabled ? '禁用' : '启用'}
           </button>
           {source.from !== 'config' && (
-            <button
-              onClick={() => handleDelete(source.key)}
-              disabled={isLoading(`deleteSource_${source.key}`)}
-              className={`${buttonStyles.roundedSecondary} ${
-                isLoading(`deleteSource_${source.key}`)
-                  ? 'opacity-50 cursor-not-allowed'
-                  : ''
-              }`}
-            >
-              删除
-            </button>
+            <>
+              <button
+                onClick={() => handleStartEditSource(source)}
+                className={buttonStyles.roundedPrimary}
+              >
+                编辑
+              </button>
+              <button
+                onClick={() => handleDelete(source.key)}
+                disabled={isLoading(`deleteSource_${source.key}`)}
+                className={`${buttonStyles.roundedSecondary} ${
+                  isLoading(`deleteSource_${source.key}`)
+                    ? 'opacity-50 cursor-not-allowed'
+                    : ''
+                }`}
+              >
+                删除
+              </button>
+            </>
           )}
         </td>
       </tr>
@@ -7739,9 +7789,7 @@ const VideoSourceConfig = ({
     if (keys.length === 0) {
       showAlert({
         type: 'warning',
-        title: `没有需要${
-          action === 'batch_enable' ? '启用' : '禁用'
-        }的视频源`,
+        title: `没有需要${action === 'batch_enable' ? '启用' : '禁用'}的视频源`,
         message: emptyMessage,
       });
       return;
@@ -7983,7 +8031,10 @@ const VideoSourceConfig = ({
                   )}
                 </button>
                 <button
-                  onClick={() => setShowAddForm(!showAddForm)}
+                  onClick={() => {
+                    if (editingSource) handleCancelSourceForm();
+                    else setShowAddForm(!showAddForm);
+                  }}
                   className={`${
                     showAddForm ? buttonStyles.secondary : buttonStyles.success
                   } shrink-0 whitespace-nowrap`}
@@ -7996,7 +8047,7 @@ const VideoSourceConfig = ({
         </div>
       </div>
 
-      {showAddForm && (
+      {(showAddForm || editingSource) && (
         <div className='p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 space-y-4'>
           <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
             <input
@@ -8012,10 +8063,11 @@ const VideoSourceConfig = ({
               type='text'
               placeholder='Key'
               value={newSource.key}
+              disabled={Boolean(editingSource)}
               onChange={(e) =>
                 setNewSource((prev) => ({ ...prev, key: e.target.value }))
               }
-              className='px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100'
+              className='px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 disabled:opacity-60'
             />
             <input
               type='text'
@@ -8038,23 +8090,37 @@ const VideoSourceConfig = ({
           </div>
           <div className='flex justify-end'>
             <button
-              onClick={handleAddSource}
+              onClick={editingSource ? handleUpdateSource : handleAddSource}
               disabled={
-                !newSource.name ||
-                !newSource.key ||
-                !newSource.api ||
-                isLoading('addSource')
+                !newSource.name.trim() ||
+                !newSource.api.trim() ||
+                (!editingSource && !newSource.key.trim()) ||
+                isLoading(
+                  editingSource
+                    ? `updateSource_${editingSource.key}`
+                    : 'addSource'
+                )
               }
               className={`w-full sm:w-auto px-4 py-2 ${
-                !newSource.name ||
-                !newSource.key ||
-                !newSource.api ||
-                isLoading('addSource')
+                !newSource.name.trim() ||
+                !newSource.api.trim() ||
+                (!editingSource && !newSource.key.trim()) ||
+                isLoading(
+                  editingSource
+                    ? `updateSource_${editingSource.key}`
+                    : 'addSource'
+                )
                   ? buttonStyles.disabled
                   : buttonStyles.success
               }`}
             >
-              {isLoading('addSource') ? '添加中...' : '添加'}
+              {editingSource
+                ? isLoading(`updateSource_${editingSource.key}`)
+                  ? '更新中...'
+                  : '更新'
+                : isLoading('addSource')
+                ? '添加中...'
+                : '添加'}
             </button>
           </div>
         </div>
@@ -8110,7 +8176,6 @@ const VideoSourceConfig = ({
         </table>
       </div>
 
-
       {showSpecialSourcesModal &&
         createPortal(
           <div
@@ -8127,7 +8192,8 @@ const VideoSourceConfig = ({
                     特殊源设置
                   </h3>
                   <p className='mt-1 text-sm text-gray-600 dark:text-gray-400'>
-                    选中的视频源对普通搜索完全隐藏，只在 /under 入口可用；/under 也不会出现普通源。开关状态见 /sp。
+                    选中的视频源对普通搜索完全隐藏，只在 /under 入口可用；/under
+                    也不会出现普通源。开关状态见 /sp。
                   </p>
                 </div>
                 <button
@@ -8145,7 +8211,8 @@ const VideoSourceConfig = ({
                     配置说明
                   </div>
                   <p className='mt-1 text-sm text-rose-700 dark:text-rose-400'>
-                    这里维护的是特殊源列表，不是用户权限；TVBox、OrionTV、WebTV 始终不会使用这些特殊源。
+                    这里维护的是特殊源列表，不是用户权限；TVBox、OrionTV、WebTV
+                    始终不会使用这些特殊源。
                   </p>
                 </div>
 
@@ -8161,7 +8228,9 @@ const VideoSourceConfig = ({
                         onChange={(e) => {
                           if (e.target.checked) {
                             setSpecialSourceDraftApis((prev) =>
-                              prev.includes(source.key) ? prev : [...prev, source.key]
+                              prev.includes(source.key)
+                                ? prev
+                                : [...prev, source.key]
                             );
                           } else {
                             setSpecialSourceDraftApis((prev) =>
@@ -8195,9 +8264,9 @@ const VideoSourceConfig = ({
                   <button
                     onClick={() => {
                       const allApis =
-                        config?.SourceConfig?.filter((source) => !source.disabled).map(
-                          (source) => source.key
-                        ) || [];
+                        config?.SourceConfig?.filter(
+                          (source) => !source.disabled
+                        ).map((source) => source.key) || [];
                       setSpecialSourceDraftApis(allApis);
                     }}
                     className={buttonStyles.quickAction}
@@ -8212,7 +8281,10 @@ const VideoSourceConfig = ({
                       {specialSourceDraftApis.length} 个源
                     </span>
                   </span>
-                  <button onClick={closeSpecialSourcesModal} className={buttonStyles.secondary}>
+                  <button
+                    onClick={closeSpecialSourcesModal}
+                    className={buttonStyles.secondary}
+                  >
                     取消
                   </button>
                   <button
@@ -8274,7 +8346,9 @@ const VideoSourceConfig = ({
                         onChange={(e) => {
                           if (e.target.checked) {
                             setClientAdSourceDraftApis((prev) =>
-                              prev.includes(source.key) ? prev : [...prev, source.key]
+                              prev.includes(source.key)
+                                ? prev
+                                : [...prev, source.key]
                             );
                           } else {
                             setClientAdSourceDraftApis((prev) =>
@@ -8308,9 +8382,9 @@ const VideoSourceConfig = ({
                   <button
                     onClick={() => {
                       const allApis =
-                        config?.SourceConfig?.filter((source) => !source.disabled).map(
-                          (source) => source.key
-                        ) || [];
+                        config?.SourceConfig?.filter(
+                          (source) => !source.disabled
+                        ).map((source) => source.key) || [];
                       setClientAdSourceDraftApis(allApis);
                     }}
                     className={buttonStyles.quickAction}
@@ -8325,7 +8399,10 @@ const VideoSourceConfig = ({
                       {clientAdSourceDraftApis.length} 个源
                     </span>
                   </span>
-                  <button onClick={closeClientAdSourcesModal} className={buttonStyles.secondary}>
+                  <button
+                    onClick={closeClientAdSourcesModal}
+                    className={buttonStyles.secondary}
+                  >
                     取消
                   </button>
                   <button
@@ -10923,10 +11000,8 @@ const ThemeConfigComponent = ({
                   <div
                     className='w-8 flex flex-col items-center pt-1 pb-2 text-[#4a2600] font-extrabold text-sm'
                     style={{
-                      background:
-                        'linear-gradient(180deg,#ffd54a,#ff8a3d)',
-                      clipPath:
-                        'polygon(0 0,100% 0,100% 100%,50% 84%,0 100%)',
+                      background: 'linear-gradient(180deg,#ffd54a,#ff8a3d)',
+                      clipPath: 'polygon(0 0,100% 0,100% 100%,50% 84%,0 100%)',
                     }}
                   >
                     <span className='flex gap-[1px] mb-[1px]'>
@@ -10970,8 +11045,7 @@ const ThemeConfigComponent = ({
                     <div
                       className='relative z-10 w-8 h-8 rounded-full flex flex-col items-center justify-center text-[#4a2600] font-extrabold text-[11px] leading-none border-2 border-white/70'
                       style={{
-                        background:
-                          'linear-gradient(135deg,#ffd54a,#ff8a3d)',
+                        background: 'linear-gradient(135deg,#ffd54a,#ff8a3d)',
                       }}
                     >
                       <span className='flex flex-col items-center -mb-[1px]'>
@@ -12109,8 +12183,8 @@ const SiteConfigComponent = ({
               className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500 focus:border-transparent'
             />
             <p className='mt-1 text-xs text-gray-500 dark:text-gray-400'>
-              用户未在本地数据源设置中配置 TMDB 图片地址时，图片默认使用该地址（默认
-              https://image.tmdb.org）
+              用户未在本地数据源设置中配置 TMDB
+              图片地址时，图片默认使用该地址（默认 https://image.tmdb.org）
             </p>
           </div>
         </div>
@@ -12259,8 +12333,8 @@ const SiteConfigComponent = ({
                   Bangumi Cloudflare Workers 代理脚本
                 </label>
                 <p className='mt-1 text-xs text-gray-500 dark:text-gray-400'>
-                  复制后粘贴到 Cloudflare Workers，部署后的域名可填入
-                  Bangumi Base URL 和 Bangumi 图片 Base URL。
+                  复制后粘贴到 Cloudflare Workers，部署后的域名可填入 Bangumi
+                  Base URL 和 Bangumi 图片 Base URL。
                 </p>
               </div>
               <div className='flex shrink-0 items-center gap-2'>
@@ -12568,7 +12642,8 @@ const SiteConfigComponent = ({
                 启用流量统计
               </label>
               <p className='mt-1 text-xs text-gray-500 dark:text-gray-400'>
-                开启后将在页面中注入统计脚本，支持 Umami、Google Analytics 和自定义代码
+                开启后将在页面中注入统计脚本，支持 Umami、Google Analytics
+                和自定义代码
               </p>
             </div>
             <button
@@ -12609,14 +12684,20 @@ const SiteConfigComponent = ({
                   onChange={(e) =>
                     setSiteSettings((prev) => ({
                       ...prev,
-                      AnalyticsProvider: e.target.value as 'umami' | 'google' | 'clarity' | 'custom',
+                      AnalyticsProvider: e.target.value as
+                        | 'umami'
+                        | 'google'
+                        | 'clarity'
+                        | 'custom',
                     }))
                   }
                   className='mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200'
                 >
                   <option value='umami'>Umami（开源，自托管）</option>
                   <option value='google'>Google Analytics</option>
-                  <option value='clarity'>Microsoft Clarity（免费，热力图+会话回放）</option>
+                  <option value='clarity'>
+                    Microsoft Clarity（免费，热力图+会话回放）
+                  </option>
                   <option value='custom'>自定义代码</option>
                 </select>
               </div>
@@ -12684,7 +12765,8 @@ const SiteConfigComponent = ({
                     className='mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200'
                   />
                   <p className='mt-1 text-xs text-gray-500 dark:text-gray-400'>
-                    Google Analytics 4 的 Measurement ID，在 GA 后台「数据流」中获取
+                    Google Analytics 4 的 Measurement ID，在 GA
+                    后台「数据流」中获取
                   </p>
                 </div>
               )}
@@ -12707,7 +12789,8 @@ const SiteConfigComponent = ({
                     className='mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200'
                   />
                   <p className='mt-1 text-xs text-gray-500 dark:text-gray-400'>
-                    Microsoft Clarity 的 Project ID，在 clarity.microsoft.com 项目设置中获取
+                    Microsoft Clarity 的 Project ID，在 clarity.microsoft.com
+                    项目设置中获取
                   </p>
                 </div>
               )}
@@ -12730,7 +12813,8 @@ const SiteConfigComponent = ({
                     className='mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 font-mono text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200'
                   />
                   <p className='mt-1 text-xs text-gray-500 dark:text-gray-400'>
-                    支持任意第三方统计服务的脚本代码，将直接注入到页面 &lt;head&gt; 中
+                    支持任意第三方统计服务的脚本代码，将直接注入到页面
+                    &lt;head&gt; 中
                   </p>
                 </div>
               )}
@@ -15348,7 +15432,6 @@ const XiaoyaConfigComponent = ({
   );
 };
 
-
 // Telegram Bot 配置组件
 const TelegramConfigComponent = ({
   config,
@@ -15416,7 +15499,10 @@ const TelegramConfigComponent = ({
         showSuccess('Telegram 配置保存成功', showAlert);
         await refreshConfig();
       } catch (error) {
-        showError(error instanceof Error ? error.message : '保存失败', showAlert);
+        showError(
+          error instanceof Error ? error.message : '保存失败',
+          showAlert
+        );
         throw error;
       }
     });
@@ -15432,9 +15518,10 @@ const TelegramConfigComponent = ({
           throw new Error('请先填写 Bot Token、Bot 用户名 和 Webhook Secret');
         }
 
-        const webhookUrlValue = webhookSecret === '******'
-          ? ''
-          : `${window.location.origin}/api/telegram/webhook/${webhookSecret}`;
+        const webhookUrlValue =
+          webhookSecret === '******'
+            ? ''
+            : `${window.location.origin}/api/telegram/webhook/${webhookSecret}`;
         const response = await fetch('/api/admin/telegram', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -15448,13 +15535,20 @@ const TelegramConfigComponent = ({
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
           const telegramDetail = data.telegram
-            ? `（HTTP ${data.telegram.status || '-'}，响应：${data.telegram.body || data.telegram.statusText || '-'}）`
+            ? `（HTTP ${data.telegram.status || '-'}，响应：${
+                data.telegram.body || data.telegram.statusText || '-'
+              }）`
             : '';
-          throw new Error(`${data.error || 'Webhook 设置失败'}${telegramDetail}`);
+          throw new Error(
+            `${data.error || 'Webhook 设置失败'}${telegramDetail}`
+          );
         }
         showSuccess('Webhook 设置成功', showAlert);
       } catch (error) {
-        showError(error instanceof Error ? error.message : 'Webhook 设置失败', showAlert);
+        showError(
+          error instanceof Error ? error.message : 'Webhook 设置失败',
+          showAlert
+        );
         throw error;
       }
     });
@@ -15471,20 +15565,31 @@ const TelegramConfigComponent = ({
         const response = await fetch('/api/admin/telegram', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'test', config: buildConfig(), testChatId: testChatId.trim() }),
+          body: JSON.stringify({
+            action: 'test',
+            config: buildConfig(),
+            testChatId: testChatId.trim(),
+          }),
         });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data.error || '发送失败');
         showSuccess('测试消息发送成功', showAlert);
       } catch (error) {
-        showError(error instanceof Error ? error.message : '发送失败', showAlert);
+        showError(
+          error instanceof Error ? error.message : '发送失败',
+          showAlert
+        );
         throw error;
       }
     });
   };
 
   const webhookUrl = webhookSecret
-    ? `${typeof window !== 'undefined' ? window.location.origin : ''}/api/telegram/webhook/${webhookSecret === '******' ? '<secret>' : webhookSecret}`
+    ? `${
+        typeof window !== 'undefined' ? window.location.origin : ''
+      }/api/telegram/webhook/${
+        webhookSecret === '******' ? '<secret>' : webhookSecret
+      }`
     : '';
 
   return (
@@ -15495,7 +15600,10 @@ const TelegramConfigComponent = ({
         </h3>
         <div className='text-sm text-sky-800 dark:text-sky-200 space-y-1'>
           <p>• 支持用户绑定 Telegram、快捷确认登录和站内通知推送</p>
-          <p>• 开启 Telegram 注册后，用户可在 Bot 中发送 /register 用户名 密码 注册账号</p>
+          <p>
+            • 开启 Telegram 注册后，用户可在 Bot 中发送 /register 用户名 密码
+            注册账号
+          </p>
           <p>• Webhook 地址需在 Telegram Bot API 中手动设置</p>
           <p>• Bot Token 和 Webhook Secret 仅服务端保存，不会暴露给前端</p>
         </div>
@@ -15504,47 +15612,113 @@ const TelegramConfigComponent = ({
       <div className='space-y-4'>
         <div className='flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700'>
           <div>
-            <h3 className='text-sm font-medium text-gray-900 dark:text-white'>启用 Telegram Bot</h3>
-            <p className='text-xs text-gray-500 dark:text-gray-400 mt-1'>开启后显示绑定与 Telegram 登录入口</p>
+            <h3 className='text-sm font-medium text-gray-900 dark:text-white'>
+              启用 Telegram Bot
+            </h3>
+            <p className='text-xs text-gray-500 dark:text-gray-400 mt-1'>
+              开启后显示绑定与 Telegram 登录入口
+            </p>
           </div>
           <button
             onClick={() => setEnabled(!enabled)}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${enabled ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-700'}`}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              enabled ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-700'
+            }`}
           >
-            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                enabled ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
           </button>
         </div>
 
         <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
           <div>
-            <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1'>Bot Token *</label>
-            <input type='password' value={botToken} onChange={(e) => setBotToken(e.target.value)} placeholder='123456:ABC...' className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white' />
+            <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1'>
+              Bot Token *
+            </label>
+            <input
+              type='password'
+              value={botToken}
+              onChange={(e) => setBotToken(e.target.value)}
+              placeholder='123456:ABC...'
+              className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
+            />
           </div>
           <div>
-            <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1'>Bot 用户名 *</label>
-            <input type='text' value={botUsername} onChange={(e) => setBotUsername(e.target.value)} placeholder='your_bot' className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white' />
+            <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1'>
+              Bot 用户名 *
+            </label>
+            <input
+              type='text'
+              value={botUsername}
+              onChange={(e) => setBotUsername(e.target.value)}
+              placeholder='your_bot'
+              className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
+            />
           </div>
         </div>
 
         <div>
-          <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1'>Webhook Secret</label>
-          <input type='password' value={webhookSecret} onChange={(e) => setWebhookSecret(e.target.value)} placeholder='建议填写随机长字符串' className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white' />
-          {webhookUrl && <p className='mt-2 break-all text-xs text-gray-500 dark:text-gray-400'>Webhook URL：{webhookUrl}</p>}
+          <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1'>
+            Webhook Secret
+          </label>
+          <input
+            type='password'
+            value={webhookSecret}
+            onChange={(e) => setWebhookSecret(e.target.value)}
+            placeholder='建议填写随机长字符串'
+            className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
+          />
+          {webhookUrl && (
+            <p className='mt-2 break-all text-xs text-gray-500 dark:text-gray-400'>
+              Webhook URL：{webhookUrl}
+            </p>
+          )}
           <div className='mt-3 flex flex-col gap-2 sm:flex-row'>
-            <button onClick={handleSetWebhook} disabled={isLoading('setTelegramWebhook')} className={`w-full sm:w-auto ${buttonStyles.primary}`}>{isLoading('setTelegramWebhook') ? '设置中...' : '一键设置 Webhook'}</button>
+            <button
+              onClick={handleSetWebhook}
+              disabled={isLoading('setTelegramWebhook')}
+              className={`w-full sm:w-auto ${buttonStyles.primary}`}
+            >
+              {isLoading('setTelegramWebhook')
+                ? '设置中...'
+                : '一键设置 Webhook'}
+            </button>
           </div>
         </div>
 
         <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-lg border border-gray-200 p-4 dark:border-gray-700'>
           <div>
-            <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1'>系统代理</label>
-            <input type='text' value={apiProxy} onChange={(e) => setApiProxy(e.target.value)} placeholder='http://127.0.0.1:7890' className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white' />
-            <p className='mt-1 text-xs text-gray-500 dark:text-gray-400'>Node 部署可用；Cloudflare/Edge 环境会忽略。</p>
+            <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1'>
+              系统代理
+            </label>
+            <input
+              type='text'
+              value={apiProxy}
+              onChange={(e) => setApiProxy(e.target.value)}
+              placeholder='http://127.0.0.1:7890'
+              className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
+            />
+            <p className='mt-1 text-xs text-gray-500 dark:text-gray-400'>
+              Node 部署可用；Cloudflare/Edge 环境会忽略。
+            </p>
           </div>
           <div>
-            <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1'>反代 Base URL</label>
-            <input type='text' value={apiBaseUrl} onChange={(e) => setApiBaseUrl(e.target.value)} placeholder='https://telegram-api.example.com' className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white' />
-            <p className='mt-1 text-xs text-gray-500 dark:text-gray-400'>用于替换 https://api.telegram.org。</p>
+            <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1'>
+              反代 Base URL
+            </label>
+            <input
+              type='text'
+              value={apiBaseUrl}
+              onChange={(e) => setApiBaseUrl(e.target.value)}
+              placeholder='https://telegram-api.example.com'
+              className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
+            />
+            <p className='mt-1 text-xs text-gray-500 dark:text-gray-400'>
+              用于替换 https://api.telegram.org。
+            </p>
           </div>
         </div>
 
@@ -15553,26 +15727,61 @@ const TelegramConfigComponent = ({
             ['允许绑定', bindingEnabled, setBindingEnabled],
             ['允许 Telegram 注册', registrationEnabled, setRegistrationEnabled],
             ['允许 Telegram 登录', loginEnabled, setLoginEnabled],
-            ['启用 Telegram 通知', notificationsEnabled, setNotificationsEnabled],
-            ['新绑定默认开启通知', defaultNotifications, setDefaultNotifications],
+            [
+              '启用 Telegram 通知',
+              notificationsEnabled,
+              setNotificationsEnabled,
+            ],
+            [
+              '新绑定默认开启通知',
+              defaultNotifications,
+              setDefaultNotifications,
+            ],
           ].map(([label, value, setter]) => (
-            <label key={label as string} className='flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300'>
-              <input type='checkbox' checked={value as boolean} onChange={(e) => (setter as (value: boolean) => void)(e.target.checked)} />
+            <label
+              key={label as string}
+              className='flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300'
+            >
+              <input
+                type='checkbox'
+                checked={value as boolean}
+                onChange={(e) =>
+                  (setter as (value: boolean) => void)(e.target.checked)
+                }
+              />
               {label as string}
             </label>
           ))}
         </div>
 
         <div className='rounded-lg border border-gray-200 p-4 dark:border-gray-700'>
-          <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1'>测试 Chat ID</label>
+          <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1'>
+            测试 Chat ID
+          </label>
           <div className='flex flex-col gap-2 sm:flex-row'>
-            <input type='text' value={testChatId} onChange={(e) => setTestChatId(e.target.value)} placeholder='用户或群组 chat_id' className='min-w-0 flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white' />
-            <button onClick={handleTest} disabled={isLoading('testTelegram')} className={`w-full shrink-0 sm:w-auto ${buttonStyles.primary}`}>{isLoading('testTelegram') ? '发送中...' : '测试'}</button>
+            <input
+              type='text'
+              value={testChatId}
+              onChange={(e) => setTestChatId(e.target.value)}
+              placeholder='用户或群组 chat_id'
+              className='min-w-0 flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white'
+            />
+            <button
+              onClick={handleTest}
+              disabled={isLoading('testTelegram')}
+              className={`w-full shrink-0 sm:w-auto ${buttonStyles.primary}`}
+            >
+              {isLoading('testTelegram') ? '发送中...' : '测试'}
+            </button>
           </div>
         </div>
 
         <div className='flex justify-end'>
-          <button onClick={handleSave} disabled={isLoading('saveTelegram')} className={buttonStyles.success}>
+          <button
+            onClick={handleSave}
+            disabled={isLoading('saveTelegram')}
+            className={buttonStyles.success}
+          >
             {isLoading('saveTelegram') ? '保存中...' : '保存配置'}
           </button>
         </div>
@@ -16574,248 +16783,260 @@ const AIConfigComponent = ({
       {/* 旧版 AI模型配置（仅旧版显示） */}
       {!enableNewMode && (
         <>
-      <div className='space-y-4'>
-        <h3 className='text-base font-semibold text-gray-900 dark:text-gray-100'>
-          AI模型配置
-        </h3>
-        <p className='text-sm text-gray-500 dark:text-gray-400'>
-          请配置兼容OpenAI格式的API
-        </p>
-        <div className='space-y-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg'>
-          <h4 className='text-sm font-semibold text-gray-900 dark:text-gray-100'>
-            自定义 API 配置
-          </h4>
-          <div>
-            <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
-              API Key <span className='text-red-500'>*</span>
-            </label>
-            <input
-              type='password'
-              value={customApiKey}
-              onChange={(e) => setCustomApiKey(e.target.value)}
-              placeholder='your-api-key'
-              className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
-            />
-          </div>
-          <div>
-            <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
-              Base URL <span className='text-red-500'>*</span>
-            </label>
-            <input
-              type='text'
-              value={customBaseURL}
-              onChange={(e) => setCustomBaseURL(e.target.value)}
-              placeholder='https://your-api.example.com/v1'
-              className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
-            />
-          </div>
-          <div>
-            <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
-              模型名称 <span className='text-red-500'>*</span>
-            </label>
-            <input
-              type='text'
-              value={customModel}
-              onChange={(e) => setCustomModel(e.target.value)}
-              placeholder='model-name'
-              className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* 旧版 决策模型配置（仅旧版显示） */}
-      <div className='space-y-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg'>
-        <div>
-          <h4 className='text-sm font-semibold text-gray-900 dark:text-gray-100'>
-            AI决策模型配置
-          </h4>
-          <p className='text-xs text-gray-500 dark:text-gray-400 mt-1'>
-            使用AI智能判断是否需要联网搜索、豆瓣或TMDB数据,并优化搜索关键词(复用主模型的API配置)
-          </p>
-        </div>
-
-        <div className='space-y-3 p-3 bg-purple-50/50 dark:bg-purple-900/10 rounded-lg'>
-          <div>
-            <label className='block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1'>
-              决策模型名称
-            </label>
-            <input
-              type='text'
-              value={decisionCustomModel}
-              onChange={(e) => setDecisionCustomModel(e.target.value)}
-              placeholder='gpt-4o-mini (建议使用成本较低的小模型)'
-              className='w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
-            />
-            <p className='text-xs text-gray-500 dark:text-gray-400 mt-1'>
-              留空则使用传统关键词匹配方式,不进行AI决策
+          <div className='space-y-4'>
+            <h3 className='text-base font-semibold text-gray-900 dark:text-gray-100'>
+              AI模型配置
+            </h3>
+            <p className='text-sm text-gray-500 dark:text-gray-400'>
+              请配置兼容OpenAI格式的API
             </p>
+            <div className='space-y-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg'>
+              <h4 className='text-sm font-semibold text-gray-900 dark:text-gray-100'>
+                自定义 API 配置
+              </h4>
+              <div>
+                <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
+                  API Key <span className='text-red-500'>*</span>
+                </label>
+                <input
+                  type='password'
+                  value={customApiKey}
+                  onChange={(e) => setCustomApiKey(e.target.value)}
+                  placeholder='your-api-key'
+                  className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
+                />
+              </div>
+              <div>
+                <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
+                  Base URL <span className='text-red-500'>*</span>
+                </label>
+                <input
+                  type='text'
+                  value={customBaseURL}
+                  onChange={(e) => setCustomBaseURL(e.target.value)}
+                  placeholder='https://your-api.example.com/v1'
+                  className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
+                />
+              </div>
+              <div>
+                <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
+                  模型名称 <span className='text-red-500'>*</span>
+                </label>
+                <input
+                  type='text'
+                  value={customModel}
+                  onChange={(e) => setCustomModel(e.target.value)}
+                  placeholder='model-name'
+                  className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
+                />
+              </div>
+            </div>
           </div>
-        </div>
 
-        <div className='bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3'>
-          <p className='text-xs text-blue-700 dark:text-blue-400'>
-            💡 <strong>提示:</strong>{' '}
-            决策模型用于智能判断是否需要调用各个数据源,建议使用成本较低的小模型(如
-            gpt-4o-mini)。会复用主模型的API Key和Base URL配置。
-          </p>
-        </div>
-      </div>
-      </>
+          {/* 旧版 决策模型配置（仅旧版显示） */}
+          <div className='space-y-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg'>
+            <div>
+              <h4 className='text-sm font-semibold text-gray-900 dark:text-gray-100'>
+                AI决策模型配置
+              </h4>
+              <p className='text-xs text-gray-500 dark:text-gray-400 mt-1'>
+                使用AI智能判断是否需要联网搜索、豆瓣或TMDB数据,并优化搜索关键词(复用主模型的API配置)
+              </p>
+            </div>
+
+            <div className='space-y-3 p-3 bg-purple-50/50 dark:bg-purple-900/10 rounded-lg'>
+              <div>
+                <label className='block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1'>
+                  决策模型名称
+                </label>
+                <input
+                  type='text'
+                  value={decisionCustomModel}
+                  onChange={(e) => setDecisionCustomModel(e.target.value)}
+                  placeholder='gpt-4o-mini (建议使用成本较低的小模型)'
+                  className='w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
+                />
+                <p className='text-xs text-gray-500 dark:text-gray-400 mt-1'>
+                  留空则使用传统关键词匹配方式,不进行AI决策
+                </p>
+              </div>
+            </div>
+
+            <div className='bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3'>
+              <p className='text-xs text-blue-700 dark:text-blue-400'>
+                💡 <strong>提示:</strong>{' '}
+                决策模型用于智能判断是否需要调用各个数据源,建议使用成本较低的小模型(如
+                gpt-4o-mini)。会复用主模型的API Key和Base URL配置。
+              </p>
+            </div>
+          </div>
+        </>
       )}
 
       {/* 新版 调用配置（仅新版显示） */}
       {enableNewMode && (
-      <div className='space-y-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg'>
-        <div>
-          <h4 className='text-sm font-semibold text-gray-900 dark:text-gray-100'>
-            新版调用配置
-          </h4>
-          <p className='text-xs text-gray-500 dark:text-gray-400 mt-1'>
-            由模型自主决定是否调用相关工具
-          </p>
-        </div>
-
-        <div>
-          <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
-            调用协议
-          </label>
-          <select
-            value={newProtocol}
-            onChange={(e) => setNewProtocol(e.target.value as any)}
-            className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
-          >
-            <option value='openai-completions'>OpenAI 普通协议 (chat/completions)</option>
-            <option value='openai-responses'>OpenAI Response 协议 (/responses)</option>
-            <option value='claude'>Claude Messages 协议 (/v1/messages)</option>
-          </select>
-        </div>
-
-        <div>
-          <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
-            最大上下文Token数
-          </label>
-          <input
-            type='number'
-            min='1024'
-            step='1024'
-            value={maxContext}
-            onChange={(e) => setMaxContext(parseInt(e.target.value) || 131072)}
-            className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
-          />
-          <p className='text-xs text-gray-500 dark:text-gray-400 mt-1'>
-            上下文窗口 token 上限，默认 131072（128k）
-          </p>
-        </div>
-
-        <div>
-          <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
-            上下文压缩触发阈值 (%)
-          </label>
-          <input
-            type='number'
-            min='0'
-            max='100'
-            step='1'
-            value={compressThreshold}
-            onChange={(e) => setCompressThreshold(parseInt(e.target.value) || 0)}
-            className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
-          />
-          <p className='text-xs text-gray-500 dark:text-gray-400 mt-1'>
-            超出后调用 LLM 将较早的工具调用摘要化并丢弃工具消息；0=关闭压缩
-          </p>
-        </div>
-
-        {(newProtocol === 'openai-completions' || newProtocol === 'openai-responses') && (
-          <div className='space-y-3 p-3 bg-purple-50/50 dark:bg-purple-900/10 rounded-lg'>
-            <div>
-              <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
-                OpenAI API Key
-              </label>
-              <input
-                type='password'
-                value={openaiApiKey}
-                onChange={(e) => setOpenaiApiKey(e.target.value)}
-                placeholder='sk-...'
-                className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
-              />
-            </div>
-            <div>
-              <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
-                OpenAI Base URL
-              </label>
-              <input
-                type='text'
-                value={openaiBaseURL}
-                onChange={(e) => setOpenaiBaseURL(e.target.value)}
-                placeholder='https://api.openai.com'
-                className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
-              />
-            </div>
-            <div>
-              <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
-                OpenAI 模型
-              </label>
-              <input
-                type='text'
-                value={openaiModel}
-                onChange={(e) => setOpenaiModel(e.target.value)}
-                placeholder='gpt-4o-mini'
-                className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
-              />
-            </div>
+        <div className='space-y-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg'>
+          <div>
+            <h4 className='text-sm font-semibold text-gray-900 dark:text-gray-100'>
+              新版调用配置
+            </h4>
+            <p className='text-xs text-gray-500 dark:text-gray-400 mt-1'>
+              由模型自主决定是否调用相关工具
+            </p>
           </div>
-        )}
 
-        {newProtocol === 'claude' && (
-          <div className='space-y-3 p-3 bg-purple-50/50 dark:bg-purple-900/10 rounded-lg'>
-            <div>
-              <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
-                Claude API Key
-              </label>
-              <input
-                type='password'
-                value={claudeApiKey}
-                onChange={(e) => setClaudeApiKey(e.target.value)}
-                placeholder='sk-ant-...'
-                className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
-              />
-            </div>
-            <div>
-              <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
-                Claude Base URL
-              </label>
-              <input
-                type='text'
-                value={claudeBaseURL}
-                onChange={(e) => setClaudeBaseURL(e.target.value)}
-                placeholder='https://api.anthropic.com'
-                className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
-              />
-            </div>
-            <div>
-              <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
-                Claude 模型
-              </label>
-              <input
-                type='text'
-                value={claudeModel}
-                onChange={(e) => setClaudeModel(e.target.value)}
-                placeholder='claude-sonnet-4-6'
-                className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
-              />
-            </div>
+          <div>
+            <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
+              调用协议
+            </label>
+            <select
+              value={newProtocol}
+              onChange={(e) => setNewProtocol(e.target.value as any)}
+              className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
+            >
+              <option value='openai-completions'>
+                OpenAI 普通协议 (chat/completions)
+              </option>
+              <option value='openai-responses'>
+                OpenAI Response 协议 (/responses)
+              </option>
+              <option value='claude'>
+                Claude Messages 协议 (/v1/messages)
+              </option>
+            </select>
           </div>
-        )}
 
-        <div className='bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3'>
-          <p className='text-xs text-blue-700 dark:text-blue-400'>
-            💡 <strong>提示:</strong> 由模型自主决定是否调用相关工具。
-            需在站点设置中配置 TMDB API Key（TMDB 工具）、
-            在下方「启用联网搜索」中配置对应搜索服务 API Key（联网搜索工具）。豆瓣工具始终可用。
-          </p>
+          <div>
+            <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
+              最大上下文Token数
+            </label>
+            <input
+              type='number'
+              min='1024'
+              step='1024'
+              value={maxContext}
+              onChange={(e) =>
+                setMaxContext(parseInt(e.target.value) || 131072)
+              }
+              className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
+            />
+            <p className='text-xs text-gray-500 dark:text-gray-400 mt-1'>
+              上下文窗口 token 上限，默认 131072（128k）
+            </p>
+          </div>
+
+          <div>
+            <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
+              上下文压缩触发阈值 (%)
+            </label>
+            <input
+              type='number'
+              min='0'
+              max='100'
+              step='1'
+              value={compressThreshold}
+              onChange={(e) =>
+                setCompressThreshold(parseInt(e.target.value) || 0)
+              }
+              className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
+            />
+            <p className='text-xs text-gray-500 dark:text-gray-400 mt-1'>
+              超出后调用 LLM 将较早的工具调用摘要化并丢弃工具消息；0=关闭压缩
+            </p>
+          </div>
+
+          {(newProtocol === 'openai-completions' ||
+            newProtocol === 'openai-responses') && (
+            <div className='space-y-3 p-3 bg-purple-50/50 dark:bg-purple-900/10 rounded-lg'>
+              <div>
+                <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
+                  OpenAI API Key
+                </label>
+                <input
+                  type='password'
+                  value={openaiApiKey}
+                  onChange={(e) => setOpenaiApiKey(e.target.value)}
+                  placeholder='sk-...'
+                  className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
+                />
+              </div>
+              <div>
+                <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
+                  OpenAI Base URL
+                </label>
+                <input
+                  type='text'
+                  value={openaiBaseURL}
+                  onChange={(e) => setOpenaiBaseURL(e.target.value)}
+                  placeholder='https://api.openai.com'
+                  className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
+                />
+              </div>
+              <div>
+                <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
+                  OpenAI 模型
+                </label>
+                <input
+                  type='text'
+                  value={openaiModel}
+                  onChange={(e) => setOpenaiModel(e.target.value)}
+                  placeholder='gpt-4o-mini'
+                  className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
+                />
+              </div>
+            </div>
+          )}
+
+          {newProtocol === 'claude' && (
+            <div className='space-y-3 p-3 bg-purple-50/50 dark:bg-purple-900/10 rounded-lg'>
+              <div>
+                <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
+                  Claude API Key
+                </label>
+                <input
+                  type='password'
+                  value={claudeApiKey}
+                  onChange={(e) => setClaudeApiKey(e.target.value)}
+                  placeholder='sk-ant-...'
+                  className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
+                />
+              </div>
+              <div>
+                <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
+                  Claude Base URL
+                </label>
+                <input
+                  type='text'
+                  value={claudeBaseURL}
+                  onChange={(e) => setClaudeBaseURL(e.target.value)}
+                  placeholder='https://api.anthropic.com'
+                  className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
+                />
+              </div>
+              <div>
+                <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
+                  Claude 模型
+                </label>
+                <input
+                  type='text'
+                  value={claudeModel}
+                  onChange={(e) => setClaudeModel(e.target.value)}
+                  placeholder='claude-sonnet-4-6'
+                  className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
+                />
+              </div>
+            </div>
+          )}
+
+          <div className='bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3'>
+            <p className='text-xs text-blue-700 dark:text-blue-400'>
+              💡 <strong>提示:</strong> 由模型自主决定是否调用相关工具。
+              需在站点设置中配置 TMDB API Key（TMDB 工具）、
+              在下方「启用联网搜索」中配置对应搜索服务 API
+              Key（联网搜索工具）。豆瓣工具始终可用。
+            </p>
+          </div>
         </div>
-      </div>
       )}
 
       {/* 联网搜索配置 */}
@@ -19439,429 +19660,459 @@ function AdminPageClient() {
 
           {/* 移动端 / 窄屏：保留原有手风琴 */}
           <div className='lg:hidden'>
-          {/* 配置文件标签 - 仅站长可见 */}
-          {role === 'owner' && (
-            <CollapsibleTab
-              title='配置文件'
-              icon={
-                <FileText
-                  size={20}
-                  className='text-gray-600 dark:text-gray-400'
-                />
-              }
-              isExpanded={expandedTabs.configFile}
-              onToggle={() => toggleTab('configFile')}
-            >
-              <ConfigFileComponent
-                config={config}
-                refreshConfig={fetchConfig}
-              />
-            </CollapsibleTab>
-          )}
-
-          {/* 站点配置标签 */}
-          <CollapsibleTab
-            title='站点配置'
-            icon={
-              <Settings
-                size={20}
-                className='text-gray-600 dark:text-gray-400'
-              />
-            }
-            isExpanded={expandedTabs.siteConfig}
-            onToggle={() => toggleTab('siteConfig')}
-          >
-            <SiteConfigComponent config={config} refreshConfig={fetchConfig} />
-          </CollapsibleTab>
-
-          {/* 注册配置标签 */}
-          <CollapsibleTab
-            title='注册配置'
-            icon={
-              <UserPlus
-                size={20}
-                className='text-gray-600 dark:text-gray-400'
-              />
-            }
-            isExpanded={expandedTabs.registrationConfig}
-            onToggle={() => toggleTab('registrationConfig')}
-          >
-            <RegistrationConfigComponent
-              config={config}
-              refreshConfig={fetchConfig}
-            />
-          </CollapsibleTab>
-
-          {/* 个性化配置标签 */}
-          <CollapsibleTab
-            title='个性化配置'
-            icon={
-              <Palette size={20} className='text-gray-600 dark:text-gray-400' />
-            }
-            isExpanded={expandedTabs.themeConfig}
-            onToggle={() => toggleTab('themeConfig')}
-          >
-            <ThemeConfigComponent config={config} refreshConfig={fetchConfig} />
-          </CollapsibleTab>
-
-          <div className='space-y-4'>
-            {/* 用户管理标签 */}
-            <CollapsibleTab
-              title='用户管理'
-              icon={
-                <Users size={20} className='text-gray-600 dark:text-gray-400' />
-              }
-              isExpanded={expandedTabs.userConfig}
-              onToggle={() => toggleTab('userConfig')}
-            >
-              <UserConfig
-                config={config}
-                role={role}
-                refreshConfig={refreshConfigAndUsers}
-                usersV2={usersV2}
-                userPage={userPage}
-                userTotalPages={userTotalPages}
-                userTotal={userTotal}
-                fetchUsersV2={fetchUsersV2}
-                userListLoading={userListLoading}
-                userSearch={userSearch}
-                setUserSearch={setUserSearch}
-              />
-            </CollapsibleTab>
-
-            {/* 视频源配置标签 */}
-            <CollapsibleTab
-              title='视频源配置'
-              icon={
-                <Video size={20} className='text-gray-600 dark:text-gray-400' />
-              }
-              isExpanded={expandedTabs.videoSource}
-              onToggle={() => toggleTab('videoSource')}
-            >
-              <VideoSourceConfig config={config} refreshConfig={fetchConfig} />
-            </CollapsibleTab>
-
-            <CollapsibleTab
-              title='视频源脚本'
-              icon={
-                <Bot size={20} className='text-gray-600 dark:text-gray-400' />
-              }
-              isExpanded={expandedTabs.sourceScriptLab}
-              onToggle={() => toggleTab('sourceScriptLab')}
-            >
-              <VideoSourceScriptLab />
-            </CollapsibleTab>
-
-            <CollapsibleTab
-              title='音乐配置'
-              icon={
-                <svg
-                  width='20'
-                  height='20'
-                  viewBox='0 0 24 24'
-                  fill='none'
-                  stroke='currentColor'
-                  strokeWidth='2'
-                  strokeLinecap='round'
-                  strokeLinejoin='round'
-                  className='text-gray-600 dark:text-gray-400'
-                >
-                  <path d='M9 18V5l12-2v13' />
-                  <circle cx='6' cy='18' r='3' />
-                  <circle cx='18' cy='16' r='3' />
-                </svg>
-              }
-              isExpanded={expandedTabs.musicConfig}
-              onToggle={() => toggleTab('musicConfig')}
-            >
-              <MusicConfigComponent
-                config={config}
-                refreshConfig={fetchConfig}
-              />
-            </CollapsibleTab>
-
-            <CollapsibleTab
-              title='漫画配置'
-              icon={
-                <BookOpen
-                  size={20}
-                  className='text-gray-600 dark:text-gray-400'
-                />
-              }
-              isExpanded={expandedTabs.suwayomiConfig}
-              onToggle={() => toggleTab('suwayomiConfig')}
-            >
-              <SuwayomiConfigComponent
-                config={config}
-                refreshConfig={fetchConfig}
-              />
-            </CollapsibleTab>
-
-            <CollapsibleTab
-              title='电子书配置'
-              icon={
-                <BookMarked
-                  size={20}
-                  className='text-gray-600 dark:text-gray-400'
-                />
-              }
-              isExpanded={expandedTabs.opdsConfig}
-              onToggle={() => toggleTab('opdsConfig')}
-            >
-              <OPDSConfigComponent
-                config={config}
-                refreshConfig={fetchConfig}
-              />
-            </CollapsibleTab>
-
-            {/* 电视直播源配置标签 */}
-            <CollapsibleTab
-              title='电视直播源配置'
-              icon={
-                <Tv size={20} className='text-gray-600 dark:text-gray-400' />
-              }
-              isExpanded={expandedTabs.liveSource}
-              onToggle={() => toggleTab('liveSource')}
-            >
-              <LiveSourceConfig config={config} refreshConfig={fetchConfig} />
-            </CollapsibleTab>
-
-            {/* 网络直播配置标签 */}
-            <CollapsibleTab
-              title='网络直播配置'
-              icon={
-                <Globe size={20} className='text-gray-600 dark:text-gray-400' />
-              }
-              isExpanded={expandedTabs.webLive}
-              onToggle={() => toggleTab('webLive')}
-            >
-              <WebLiveConfig config={config} refreshConfig={fetchConfig} />
-            </CollapsibleTab>
-
-            {/* 私人影库大类 */}
-            <CollapsibleTab
-              title='私人影库'
-              icon={
-                <Database
-                  size={20}
-                  className='text-yellow-700 dark:text-yellow-400'
-                />
-              }
-              isExpanded={expandedTabs.mediaLibrary}
-              onToggle={() => toggleTab('mediaLibrary')}
-              isParent={true}
-            >
-              <div className='space-y-4'>
-                {/* Openlist配置子标签 */}
-                <CollapsibleTab
-                  title='Openlist配置'
-                  icon={
-                    <FolderOpen
-                      size={20}
-                      className='text-gray-600 dark:text-gray-400'
-                    />
-                  }
-                  isExpanded={expandedTabs.openListConfig}
-                  onToggle={() => toggleTab('openListConfig')}
-                >
-                  <OpenListConfigComponent
-                    config={config}
-                    refreshConfig={fetchConfig}
-                  />
-                </CollapsibleTab>
-
-                {/* Emby 媒体库子标签 */}
-                <CollapsibleTab
-                  title='Emby 媒体库'
-                  icon={
-                    <FolderOpen
-                      size={20}
-                      className='text-gray-600 dark:text-gray-400'
-                    />
-                  }
-                  isExpanded={expandedTabs.embyConfig}
-                  onToggle={() => toggleTab('embyConfig')}
-                >
-                  <EmbyConfigComponent
-                    config={config}
-                    refreshConfig={fetchConfig}
-                  />
-                </CollapsibleTab>
-
-                {/* 小雅配置子标签 */}
-                <CollapsibleTab
-                  title='小雅配置'
-                  icon={
-                    <FolderOpen
-                      size={20}
-                      className='text-gray-600 dark:text-gray-400'
-                    />
-                  }
-                  isExpanded={expandedTabs.xiaoyaConfig}
-                  onToggle={() => toggleTab('xiaoyaConfig')}
-                >
-                  <XiaoyaConfigComponent
-                    config={config}
-                    refreshConfig={fetchConfig}
-                  />
-                </CollapsibleTab>
-                {/* 求片管理子标签 */}
-                <CollapsibleTab
-                  title='求片管理'
-                  icon={
-                    <Video
-                      size={20}
-                      className='text-gray-600 dark:text-gray-400'
-                    />
-                  }
-                  isExpanded={expandedTabs.movieRequests}
-                  onToggle={() => toggleTab('movieRequests')}
-                >
-                  <MovieRequestsComponent
-                    config={config}
-                    refreshConfig={fetchConfig}
-                  />
-                </CollapsibleTab>
-
-                {/* 追番订阅子标签 */}
-                <CollapsibleTab
-                  title='追番订阅'
-                  icon={
-                    <Cat
-                      size={20}
-                      className='text-gray-600 dark:text-gray-400'
-                    />
-                  }
-                  isExpanded={expandedTabs.animeSubscription}
-                  onToggle={() => toggleTab('animeSubscription')}
-                >
-                  <AnimeSubscriptionComponent
-                    config={config}
-                    refreshConfig={fetchConfig}
-                  />
-                </CollapsibleTab>
-
-                <CollapsibleTab
-                  title='网盘配置'
-                  icon={
-                    <Cloud
-                      size={20}
-                      className='text-gray-600 dark:text-gray-400'
-                    />
-                  }
-                  isExpanded={expandedTabs.netDiskConfig}
-                  onToggle={() => toggleTab('netDiskConfig')}
-                >
-                  <NetDiskConfigComponent
-                    config={config}
-                    refreshConfig={fetchConfig}
-                  />
-                </CollapsibleTab>
-              </div>
-            </CollapsibleTab>
-
-            {/* AI配置标签 */}
-            <CollapsibleTab
-              title='AI设定'
-              icon={
-                <Bot size={20} className='text-gray-600 dark:text-gray-400' />
-              }
-              isExpanded={expandedTabs.aiConfig}
-              onToggle={() => toggleTab('aiConfig')}
-            >
-              <AIConfigComponent config={config} refreshConfig={fetchConfig} />
-            </CollapsibleTab>
-
-            {/* 邮件配置标签 */}
-            <CollapsibleTab
-              title='邮件配置'
-              icon={
-                <Mail size={20} className='text-gray-600 dark:text-gray-400' />
-              }
-              isExpanded={expandedTabs.emailConfig}
-              onToggle={() => toggleTab('emailConfig')}
-            >
-              <EmailConfigComponent
-                config={config}
-                refreshConfig={fetchConfig}
-              />
-            </CollapsibleTab>
-
-            {/* Telegram Bot 配置标签 */}
-            <CollapsibleTab
-              title='Telegram Bot'
-              icon={
-                <Send size={20} className='text-gray-600 dark:text-gray-400' />
-              }
-              isExpanded={expandedTabs.telegramConfig}
-              onToggle={() => toggleTab('telegramConfig')}
-            >
-              <TelegramConfigComponent
-                config={config}
-                refreshConfig={fetchConfig}
-              />
-            </CollapsibleTab>
-
-            {/* 分类配置标签 */}
-            <CollapsibleTab
-              title='分类配置'
-              icon={
-                <FolderOpen
-                  size={20}
-                  className='text-gray-600 dark:text-gray-400'
-                />
-              }
-              isExpanded={expandedTabs.categoryConfig}
-              onToggle={() => toggleTab('categoryConfig')}
-            >
-              <CategoryConfig config={config} refreshConfig={fetchConfig} />
-            </CollapsibleTab>
-
-            {/* 自定义去广告标签 */}
-            <CollapsibleTab
-              title='自定义去广告'
-              icon={
-                <svg
-                  width='20'
-                  height='20'
-                  viewBox='0 0 24 24'
-                  fill='none'
-                  stroke='currentColor'
-                  strokeWidth='2'
-                  strokeLinecap='round'
-                  strokeLinejoin='round'
-                  className='text-gray-600 dark:text-gray-400'
-                >
-                  <path d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z' />
-                  <path d='M8 12h8' />
-                </svg>
-              }
-              isExpanded={expandedTabs.customAdFilter}
-              onToggle={() => toggleTab('customAdFilter')}
-            >
-              <CustomAdFilterConfig
-                config={config}
-                refreshConfig={fetchConfig}
-              />
-            </CollapsibleTab>
-
-            {/* 数据迁移标签 - 仅站长可见 */}
+            {/* 配置文件标签 - 仅站长可见 */}
             {role === 'owner' && (
               <CollapsibleTab
-                title='数据迁移'
+                title='配置文件'
                 icon={
-                  <Database
+                  <FileText
                     size={20}
                     className='text-gray-600 dark:text-gray-400'
                   />
                 }
-                isExpanded={expandedTabs.dataMigration}
-                onToggle={() => toggleTab('dataMigration')}
+                isExpanded={expandedTabs.configFile}
+                onToggle={() => toggleTab('configFile')}
               >
-                <DataMigration onRefreshConfig={refreshConfigAndUsers} />
+                <ConfigFileComponent
+                  config={config}
+                  refreshConfig={fetchConfig}
+                />
               </CollapsibleTab>
             )}
-          </div>
+
+            {/* 站点配置标签 */}
+            <CollapsibleTab
+              title='站点配置'
+              icon={
+                <Settings
+                  size={20}
+                  className='text-gray-600 dark:text-gray-400'
+                />
+              }
+              isExpanded={expandedTabs.siteConfig}
+              onToggle={() => toggleTab('siteConfig')}
+            >
+              <SiteConfigComponent
+                config={config}
+                refreshConfig={fetchConfig}
+              />
+            </CollapsibleTab>
+
+            {/* 注册配置标签 */}
+            <CollapsibleTab
+              title='注册配置'
+              icon={
+                <UserPlus
+                  size={20}
+                  className='text-gray-600 dark:text-gray-400'
+                />
+              }
+              isExpanded={expandedTabs.registrationConfig}
+              onToggle={() => toggleTab('registrationConfig')}
+            >
+              <RegistrationConfigComponent
+                config={config}
+                refreshConfig={fetchConfig}
+              />
+            </CollapsibleTab>
+
+            {/* 个性化配置标签 */}
+            <CollapsibleTab
+              title='个性化配置'
+              icon={
+                <Palette
+                  size={20}
+                  className='text-gray-600 dark:text-gray-400'
+                />
+              }
+              isExpanded={expandedTabs.themeConfig}
+              onToggle={() => toggleTab('themeConfig')}
+            >
+              <ThemeConfigComponent
+                config={config}
+                refreshConfig={fetchConfig}
+              />
+            </CollapsibleTab>
+
+            <div className='space-y-4'>
+              {/* 用户管理标签 */}
+              <CollapsibleTab
+                title='用户管理'
+                icon={
+                  <Users
+                    size={20}
+                    className='text-gray-600 dark:text-gray-400'
+                  />
+                }
+                isExpanded={expandedTabs.userConfig}
+                onToggle={() => toggleTab('userConfig')}
+              >
+                <UserConfig
+                  config={config}
+                  role={role}
+                  refreshConfig={refreshConfigAndUsers}
+                  usersV2={usersV2}
+                  userPage={userPage}
+                  userTotalPages={userTotalPages}
+                  userTotal={userTotal}
+                  fetchUsersV2={fetchUsersV2}
+                  userListLoading={userListLoading}
+                  userSearch={userSearch}
+                  setUserSearch={setUserSearch}
+                />
+              </CollapsibleTab>
+
+              {/* 视频源配置标签 */}
+              <CollapsibleTab
+                title='视频源配置'
+                icon={
+                  <Video
+                    size={20}
+                    className='text-gray-600 dark:text-gray-400'
+                  />
+                }
+                isExpanded={expandedTabs.videoSource}
+                onToggle={() => toggleTab('videoSource')}
+              >
+                <VideoSourceConfig
+                  config={config}
+                  refreshConfig={fetchConfig}
+                />
+              </CollapsibleTab>
+
+              <CollapsibleTab
+                title='视频源脚本'
+                icon={
+                  <Bot size={20} className='text-gray-600 dark:text-gray-400' />
+                }
+                isExpanded={expandedTabs.sourceScriptLab}
+                onToggle={() => toggleTab('sourceScriptLab')}
+              >
+                <VideoSourceScriptLab />
+              </CollapsibleTab>
+
+              <CollapsibleTab
+                title='音乐配置'
+                icon={
+                  <svg
+                    width='20'
+                    height='20'
+                    viewBox='0 0 24 24'
+                    fill='none'
+                    stroke='currentColor'
+                    strokeWidth='2'
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    className='text-gray-600 dark:text-gray-400'
+                  >
+                    <path d='M9 18V5l12-2v13' />
+                    <circle cx='6' cy='18' r='3' />
+                    <circle cx='18' cy='16' r='3' />
+                  </svg>
+                }
+                isExpanded={expandedTabs.musicConfig}
+                onToggle={() => toggleTab('musicConfig')}
+              >
+                <MusicConfigComponent
+                  config={config}
+                  refreshConfig={fetchConfig}
+                />
+              </CollapsibleTab>
+
+              <CollapsibleTab
+                title='漫画配置'
+                icon={
+                  <BookOpen
+                    size={20}
+                    className='text-gray-600 dark:text-gray-400'
+                  />
+                }
+                isExpanded={expandedTabs.suwayomiConfig}
+                onToggle={() => toggleTab('suwayomiConfig')}
+              >
+                <SuwayomiConfigComponent
+                  config={config}
+                  refreshConfig={fetchConfig}
+                />
+              </CollapsibleTab>
+
+              <CollapsibleTab
+                title='电子书配置'
+                icon={
+                  <BookMarked
+                    size={20}
+                    className='text-gray-600 dark:text-gray-400'
+                  />
+                }
+                isExpanded={expandedTabs.opdsConfig}
+                onToggle={() => toggleTab('opdsConfig')}
+              >
+                <OPDSConfigComponent
+                  config={config}
+                  refreshConfig={fetchConfig}
+                />
+              </CollapsibleTab>
+
+              {/* 电视直播源配置标签 */}
+              <CollapsibleTab
+                title='电视直播源配置'
+                icon={
+                  <Tv size={20} className='text-gray-600 dark:text-gray-400' />
+                }
+                isExpanded={expandedTabs.liveSource}
+                onToggle={() => toggleTab('liveSource')}
+              >
+                <LiveSourceConfig config={config} refreshConfig={fetchConfig} />
+              </CollapsibleTab>
+
+              {/* 网络直播配置标签 */}
+              <CollapsibleTab
+                title='网络直播配置'
+                icon={
+                  <Globe
+                    size={20}
+                    className='text-gray-600 dark:text-gray-400'
+                  />
+                }
+                isExpanded={expandedTabs.webLive}
+                onToggle={() => toggleTab('webLive')}
+              >
+                <WebLiveConfig config={config} refreshConfig={fetchConfig} />
+              </CollapsibleTab>
+
+              {/* 私人影库大类 */}
+              <CollapsibleTab
+                title='私人影库'
+                icon={
+                  <Database
+                    size={20}
+                    className='text-yellow-700 dark:text-yellow-400'
+                  />
+                }
+                isExpanded={expandedTabs.mediaLibrary}
+                onToggle={() => toggleTab('mediaLibrary')}
+                isParent={true}
+              >
+                <div className='space-y-4'>
+                  {/* Openlist配置子标签 */}
+                  <CollapsibleTab
+                    title='Openlist配置'
+                    icon={
+                      <FolderOpen
+                        size={20}
+                        className='text-gray-600 dark:text-gray-400'
+                      />
+                    }
+                    isExpanded={expandedTabs.openListConfig}
+                    onToggle={() => toggleTab('openListConfig')}
+                  >
+                    <OpenListConfigComponent
+                      config={config}
+                      refreshConfig={fetchConfig}
+                    />
+                  </CollapsibleTab>
+
+                  {/* Emby 媒体库子标签 */}
+                  <CollapsibleTab
+                    title='Emby 媒体库'
+                    icon={
+                      <FolderOpen
+                        size={20}
+                        className='text-gray-600 dark:text-gray-400'
+                      />
+                    }
+                    isExpanded={expandedTabs.embyConfig}
+                    onToggle={() => toggleTab('embyConfig')}
+                  >
+                    <EmbyConfigComponent
+                      config={config}
+                      refreshConfig={fetchConfig}
+                    />
+                  </CollapsibleTab>
+
+                  {/* 小雅配置子标签 */}
+                  <CollapsibleTab
+                    title='小雅配置'
+                    icon={
+                      <FolderOpen
+                        size={20}
+                        className='text-gray-600 dark:text-gray-400'
+                      />
+                    }
+                    isExpanded={expandedTabs.xiaoyaConfig}
+                    onToggle={() => toggleTab('xiaoyaConfig')}
+                  >
+                    <XiaoyaConfigComponent
+                      config={config}
+                      refreshConfig={fetchConfig}
+                    />
+                  </CollapsibleTab>
+                  {/* 求片管理子标签 */}
+                  <CollapsibleTab
+                    title='求片管理'
+                    icon={
+                      <Video
+                        size={20}
+                        className='text-gray-600 dark:text-gray-400'
+                      />
+                    }
+                    isExpanded={expandedTabs.movieRequests}
+                    onToggle={() => toggleTab('movieRequests')}
+                  >
+                    <MovieRequestsComponent
+                      config={config}
+                      refreshConfig={fetchConfig}
+                    />
+                  </CollapsibleTab>
+
+                  {/* 追番订阅子标签 */}
+                  <CollapsibleTab
+                    title='追番订阅'
+                    icon={
+                      <Cat
+                        size={20}
+                        className='text-gray-600 dark:text-gray-400'
+                      />
+                    }
+                    isExpanded={expandedTabs.animeSubscription}
+                    onToggle={() => toggleTab('animeSubscription')}
+                  >
+                    <AnimeSubscriptionComponent
+                      config={config}
+                      refreshConfig={fetchConfig}
+                    />
+                  </CollapsibleTab>
+
+                  <CollapsibleTab
+                    title='网盘配置'
+                    icon={
+                      <Cloud
+                        size={20}
+                        className='text-gray-600 dark:text-gray-400'
+                      />
+                    }
+                    isExpanded={expandedTabs.netDiskConfig}
+                    onToggle={() => toggleTab('netDiskConfig')}
+                  >
+                    <NetDiskConfigComponent
+                      config={config}
+                      refreshConfig={fetchConfig}
+                    />
+                  </CollapsibleTab>
+                </div>
+              </CollapsibleTab>
+
+              {/* AI配置标签 */}
+              <CollapsibleTab
+                title='AI设定'
+                icon={
+                  <Bot size={20} className='text-gray-600 dark:text-gray-400' />
+                }
+                isExpanded={expandedTabs.aiConfig}
+                onToggle={() => toggleTab('aiConfig')}
+              >
+                <AIConfigComponent
+                  config={config}
+                  refreshConfig={fetchConfig}
+                />
+              </CollapsibleTab>
+
+              {/* 邮件配置标签 */}
+              <CollapsibleTab
+                title='邮件配置'
+                icon={
+                  <Mail
+                    size={20}
+                    className='text-gray-600 dark:text-gray-400'
+                  />
+                }
+                isExpanded={expandedTabs.emailConfig}
+                onToggle={() => toggleTab('emailConfig')}
+              >
+                <EmailConfigComponent
+                  config={config}
+                  refreshConfig={fetchConfig}
+                />
+              </CollapsibleTab>
+
+              {/* Telegram Bot 配置标签 */}
+              <CollapsibleTab
+                title='Telegram Bot'
+                icon={
+                  <Send
+                    size={20}
+                    className='text-gray-600 dark:text-gray-400'
+                  />
+                }
+                isExpanded={expandedTabs.telegramConfig}
+                onToggle={() => toggleTab('telegramConfig')}
+              >
+                <TelegramConfigComponent
+                  config={config}
+                  refreshConfig={fetchConfig}
+                />
+              </CollapsibleTab>
+
+              {/* 分类配置标签 */}
+              <CollapsibleTab
+                title='分类配置'
+                icon={
+                  <FolderOpen
+                    size={20}
+                    className='text-gray-600 dark:text-gray-400'
+                  />
+                }
+                isExpanded={expandedTabs.categoryConfig}
+                onToggle={() => toggleTab('categoryConfig')}
+              >
+                <CategoryConfig config={config} refreshConfig={fetchConfig} />
+              </CollapsibleTab>
+
+              {/* 自定义去广告标签 */}
+              <CollapsibleTab
+                title='自定义去广告'
+                icon={
+                  <svg
+                    width='20'
+                    height='20'
+                    viewBox='0 0 24 24'
+                    fill='none'
+                    stroke='currentColor'
+                    strokeWidth='2'
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    className='text-gray-600 dark:text-gray-400'
+                  >
+                    <path d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z' />
+                    <path d='M8 12h8' />
+                  </svg>
+                }
+                isExpanded={expandedTabs.customAdFilter}
+                onToggle={() => toggleTab('customAdFilter')}
+              >
+                <CustomAdFilterConfig
+                  config={config}
+                  refreshConfig={fetchConfig}
+                />
+              </CollapsibleTab>
+
+              {/* 数据迁移标签 - 仅站长可见 */}
+              {role === 'owner' && (
+                <CollapsibleTab
+                  title='数据迁移'
+                  icon={
+                    <Database
+                      size={20}
+                      className='text-gray-600 dark:text-gray-400'
+                    />
+                  }
+                  isExpanded={expandedTabs.dataMigration}
+                  onToggle={() => toggleTab('dataMigration')}
+                >
+                  <DataMigration onRefreshConfig={refreshConfigAndUsers} />
+                </CollapsibleTab>
+              )}
+            </div>
           </div>
         </div>
       </div>
