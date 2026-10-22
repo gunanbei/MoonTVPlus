@@ -252,6 +252,30 @@ body.ios-pwa-art-fullscreen .art-fullscreen-web .art-control-bottom {
   padding-bottom: env(safe-area-inset-bottom) !important;
 }
 
+body.ios-pwa-art-fullscreen.ios-pwa-art-landscape > .art-fullscreen-web,
+body.ios-pwa-art-fullscreen.ios-pwa-art-landscape .art-fullscreen-web {
+  width: var(--ios-pwa-viewport-height, 100dvh) !important;
+  height: var(--ios-pwa-viewport-width, 100vw) !important;
+  min-width: var(--ios-pwa-viewport-height, 100dvh) !important;
+  min-height: var(--ios-pwa-viewport-width, 100vw) !important;
+  top: 50% !important;
+  left: 50% !important;
+  right: auto !important;
+  bottom: auto !important;
+  transform: translate(-50%, -50%) rotate(90deg) !important;
+  transform-origin: center center !important;
+}
+
+body.ios-pwa-art-fullscreen.ios-pwa-art-landscape > .art-fullscreen-web .art-video-player,
+body.ios-pwa-art-fullscreen.ios-pwa-art-landscape .art-fullscreen-web .art-video-player,
+body.ios-pwa-art-fullscreen.ios-pwa-art-landscape > .art-fullscreen-web video,
+body.ios-pwa-art-fullscreen.ios-pwa-art-landscape .art-fullscreen-web video,
+body.ios-pwa-art-fullscreen.ios-pwa-art-landscape > .art-fullscreen-web canvas,
+body.ios-pwa-art-fullscreen.ios-pwa-art-landscape .art-fullscreen-web canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
 /* 隐藏移动端竖屏时的 pip 按钮 */
 @media (max-width: 768px) {
   .art-control-pip {

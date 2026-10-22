@@ -451,6 +451,9 @@ function PlayPageClient() {
 
   // 网页全屏状态 - 控制导航栏的显示隐藏
   const [isWebFullscreen, setIsWebFullscreen] = useState(false);
+  const [iosPwaOrientationMode, setIosPwaOrientationMode] = useState<'auto' | 'current' | 'landscape'>('auto');
+  const iosPwaOrientationModeRef = useRef<'auto' | 'current' | 'landscape'>('auto');
+  const iosPwaOrientationLockRef = useRef(false);
   // 原生全屏状态
   const [isNativeFullscreen, setIsNativeFullscreen] = useState(false);
 
@@ -9373,50 +9376,139 @@ function PlayPageClient() {
         });
 
         // 监听网页全屏事件，控制导航栏显示隐藏。
-        // iOS PWA 只通过 ArtPlayer 网页全屏进入，类名负责把 body 下的播放器固定到视口。
+        // iOS PWA 仅管理 ArtPlayer 网页全屏，方向锁失败时再使用播放器节点旋转。
+        const orientationApi = (screen as any).orientation;
+        const applyIOSPwaOrientation = async () => {
+          const player = artPlayerRef.current;
+          const video = player?.video as HTMLVideoElement | undefined;
+          if (!isIOSPwa || !player?.fullscreenWeb) return;
+
+          const mode = iosPwaOrientationModeRef.current;
+          const ratio = video?.videoWidth && video.videoHeight ? video.videoWidth / video.videoHeight : 0;
+          const viewportWidth = window.visualViewport?.width || window.innerWidth;
+          const viewportHeight = window.visualViewport?.height || window.innerHeight;
+          const landscape = mode === 'landscape' || (mode === 'auto' && ratio > 1.08);
+          const shouldLock = landscape;
+          let locked = false;
+
+          if (shouldLock && typeof orientationApi?.lock === 'function') {
+            try {
+              await orientationApi.lock('landscape');
+              locked = true;
+            } catch {
+              // iOS standalone PWA 通常拒绝网页方向锁，后续改用仅旋转播放器的布局。
+            }
+          } else if (!shouldLock && iosPwaOrientationLockRef.current && typeof orientationApi?.unlock === 'function') {
+            try { orientationApi.unlock(); } catch { /* 浏览器可能不实现 unlock */ }
+          }
+
+          iosPwaOrientationLockRef.current = locked;
+          document.documentElement.classList.toggle('ios-pwa-art-landscape', landscape && !locked && viewportWidth < viewportHeight);
+          document.body.classList.toggle('ios-pwa-art-landscape', landscape && !locked && viewportWidth < viewportHeight);
+          refreshIOSPwaPlayerSize();
+        };
+
+        const clearIOSPwaOrientation = () => {
+          document.documentElement.classList.remove('ios-pwa-art-landscape');
+          document.body.classList.remove('ios-pwa-art-landscape');
+          if (iosPwaOrientationLockRef.current && typeof orientationApi?.unlock === 'function') {
+            try { orientationApi.unlock(); } catch { /* 忽略清理失败 */ }
+          }
+          iosPwaOrientationLockRef.current = false;
+        };
+
         const syncIOSPwaFullscreen = (isFullscreen: boolean) => {
           if (!isIOSPwa || typeof document === 'undefined') return;
 
           document.documentElement.classList.toggle('ios-pwa-art-fullscreen', isFullscreen);
           document.body.classList.toggle('ios-pwa-art-fullscreen', isFullscreen);
           if (!isFullscreen) {
+            document.documentElement.style.removeProperty('--ios-pwa-viewport-width');
             document.documentElement.style.removeProperty('--ios-pwa-viewport-height');
+            clearIOSPwaOrientation();
           }
         };
 
-                const refreshIOSPwaPlayerSize = () => {
+        const refreshIOSPwaPlayerSize = () => {
                   if (!isIOSPwa) return;
 
+                  const viewportWidth = window.visualViewport?.width || window.innerWidth;
                   const viewportHeight = window.visualViewport?.height || window.innerHeight;
-                  document.documentElement.style.setProperty(
-                    '--ios-pwa-viewport-height',
-                    `${Math.round(viewportHeight)}px`
-                  );
+                  document.documentElement.style.setProperty('--ios-pwa-viewport-width', `${Math.round(viewportWidth)}px`);
+                  document.documentElement.style.setProperty('--ios-pwa-viewport-height', `${Math.round(viewportHeight)}px`);
                   if (!artPlayerRef.current?.fullscreenWeb) return;
 
                   requestAnimationFrame(() => {
                     if (!artPlayerRef.current?.fullscreenWeb) return;
-                    // ArtPlayer 自身负责重新计算 video、弹幕和控制栏尺寸；这里不退出再重进全屏。
                     artPlayerRef.current.resize?.();
                   });
                 };
+
+        const handleIOSPwaOrientationChange = () => {
+          refreshIOSPwaPlayerSize();
+          void applyIOSPwaOrientation();
+        };
+
+        if (isIOSPwa) {
+          const video = artPlayerRef.current.video as HTMLVideoElement;
+          const onMetadata = () => { window.setTimeout(() => void applyIOSPwaOrientation(), 80); };
+          video.addEventListener('loadedmetadata', onMetadata);
+          video.addEventListener('resize', onMetadata);
+          artPlayerRef.current.on('destroy', () => {
+            video.removeEventListener('loadedmetadata', onMetadata);
+            video.removeEventListener('resize', onMetadata);
+          });
+          artPlayerRef.current.controls.add({
+            name: 'ios-pwa-orientation',
+            position: 'right',
+            index: 10,
+            html: `方向：${iosPwaOrientationMode === 'auto' ? '自动' : iosPwaOrientationMode === 'current' ? '保持当前方向' : '强制横屏'}`,
+            tooltip: '切换全屏方向模式',
+            style: { display: 'none' },
+            mounted: ($element: HTMLElement) => {
+              const modeLabels = { auto: '自动', current: '保持当前方向', landscape: '强制横屏' };
+              const updateControl = () => {
+                $element.textContent = `方向：${modeLabels[iosPwaOrientationModeRef.current]}`;
+                $element.title = `全屏方向：${modeLabels[iosPwaOrientationModeRef.current]}（点击切换）`;
+                $element.style.display = artPlayerRef.current?.fullscreenWeb ? '' : 'none';
+              };
+              updateControl();
+              artPlayerRef.current?.on('fullscreenWeb', updateControl);
+              $element.addEventListener('click', () => {
+                const modes: Array<'auto' | 'current' | 'landscape'> = ['auto', 'current', 'landscape'];
+                const current = modes.indexOf(iosPwaOrientationModeRef.current);
+                const next = modes[(current + 1) % modes.length];
+                iosPwaOrientationModeRef.current = next;
+                setIosPwaOrientationMode(next);
+                updateControl();
+                void applyIOSPwaOrientation();
+                if (artPlayerRef.current) artPlayerRef.current.notice.show = `全屏方向：${modeLabels[next]}`;
+              });
+            },
+          });
+        }
 
         artPlayerRef.current.on('fullscreenWeb', (isFullscreen: boolean) => {
           console.log('网页全屏状态变化:', isFullscreen);
           setIsWebFullscreen(isFullscreen);
           syncIOSPwaFullscreen(isFullscreen);
           refreshIOSPwaPlayerSize();
+          if (isFullscreen) {
+            void applyIOSPwaOrientation();
+          }
         });
 
         if (isIOSPwa) {
           window.addEventListener('orientationchange', refreshIOSPwaPlayerSize);
           window.addEventListener('resize', refreshIOSPwaPlayerSize);
+          window.addEventListener('orientationchange', handleIOSPwaOrientationChange);
           window.visualViewport?.addEventListener('resize', refreshIOSPwaPlayerSize);
           window.visualViewport?.addEventListener('scroll', refreshIOSPwaPlayerSize);
 
           artPlayerRef.current.on('destroy', () => {
             window.removeEventListener('orientationchange', refreshIOSPwaPlayerSize);
             window.removeEventListener('resize', refreshIOSPwaPlayerSize);
+            window.removeEventListener('orientationchange', handleIOSPwaOrientationChange);
             window.visualViewport?.removeEventListener('resize', refreshIOSPwaPlayerSize);
             window.visualViewport?.removeEventListener('scroll', refreshIOSPwaPlayerSize);
             syncIOSPwaFullscreen(false);
