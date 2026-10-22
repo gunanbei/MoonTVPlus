@@ -25,7 +25,7 @@
   width: 100px;
   height: 100%;
   box-shadow: 0 0 10px rgba(59, 130, 246, 0.8), 0 0 5px rgba(59, 130, 246, 0.6);
-  opacity: 1.0;
+  opacity: 1;
   transform: rotate(3deg) translate(0px, -4px);
 }
 
@@ -207,6 +207,7 @@ html.ios-pwa-art-fullscreen,
 body.ios-pwa-art-fullscreen {
   overflow: hidden !important;
   overscroll-behavior: none;
+  background: #000 !important;
 }
 
 body.ios-pwa-art-fullscreen {
@@ -249,7 +250,54 @@ body.ios-pwa-art-fullscreen .art-fullscreen-web video {
 
 body.ios-pwa-art-fullscreen > .art-fullscreen-web .art-control-bottom,
 body.ios-pwa-art-fullscreen .art-fullscreen-web .art-control-bottom {
-  padding-bottom: env(safe-area-inset-bottom) !important;
+  /* 横屏被 CSS 旋转时，底栏的 inline 轴对应设备竖屏的上下两端。 */
+  padding-inline: max(12px, env(safe-area-inset-top, 0px))
+    max(12px, env(safe-area-inset-bottom, 0px)) !important;
+  padding-bottom: max(
+    12px,
+    env(safe-area-inset-left, 0px),
+    env(safe-area-inset-bottom, 0px)
+  ) !important;
+  box-sizing: border-box !important;
+}
+
+body.ios-pwa-art-fullscreen
+  > .art-fullscreen-web
+  .art-control-bottom
+  .art-control-item,
+body.ios-pwa-art-fullscreen
+  .art-fullscreen-web
+  .art-control-bottom
+  .art-control-item {
+  min-width: 44px !important;
+  min-height: 44px !important;
+}
+
+/* 设备本身处于横屏时，ArtPlayer 未经 CSS 旋转，安全区沿用真实左右边缘。 */
+@media (orientation: landscape) {
+  body.ios-pwa-art-fullscreen > .art-fullscreen-web .art-control-bottom,
+  body.ios-pwa-art-fullscreen .art-fullscreen-web .art-control-bottom {
+    padding-inline: max(16px, env(safe-area-inset-left, 0px))
+      max(16px, env(safe-area-inset-right, 0px)) !important;
+    padding-bottom: max(12px, env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+
+/* CSS 旋转后，底栏两端映射到设备的屏幕上、下沿，给可点击项留出空间。 */
+body.ios-pwa-art-fullscreen.ios-pwa-art-landscape
+  > .art-fullscreen-web
+  .art-control-bottom,
+body.ios-pwa-art-fullscreen.ios-pwa-art-landscape
+  .art-fullscreen-web
+  .art-control-bottom {
+  padding-inline: max(16px, env(safe-area-inset-top, 0px))
+    max(16px, env(safe-area-inset-bottom, 0px)) !important;
+  padding-bottom: max(
+    12px,
+    env(safe-area-inset-left, 0px),
+    env(safe-area-inset-bottom, 0px)
+  ) !important;
+  gap: clamp(2px, 1vw, 10px);
 }
 
 body.ios-pwa-art-fullscreen.ios-pwa-art-landscape > .art-fullscreen-web,
@@ -266,8 +314,12 @@ body.ios-pwa-art-fullscreen.ios-pwa-art-landscape .art-fullscreen-web {
   transform-origin: center center !important;
 }
 
-body.ios-pwa-art-fullscreen.ios-pwa-art-landscape > .art-fullscreen-web .art-video-player,
-body.ios-pwa-art-fullscreen.ios-pwa-art-landscape .art-fullscreen-web .art-video-player,
+body.ios-pwa-art-fullscreen.ios-pwa-art-landscape
+  > .art-fullscreen-web
+  .art-video-player,
+body.ios-pwa-art-fullscreen.ios-pwa-art-landscape
+  .art-fullscreen-web
+  .art-video-player,
 body.ios-pwa-art-fullscreen.ios-pwa-art-landscape > .art-fullscreen-web video,
 body.ios-pwa-art-fullscreen.ios-pwa-art-landscape .art-fullscreen-web video,
 body.ios-pwa-art-fullscreen.ios-pwa-art-landscape > .art-fullscreen-web canvas,
@@ -297,7 +349,8 @@ body.ios-pwa-art-fullscreen.ios-pwa-art-landscape .art-fullscreen-web canvas {
     transform: scale(1);
     opacity: 0.6;
   }
-  75%, 100% {
+  75%,
+  100% {
     transform: scale(2);
     opacity: 0;
   }
@@ -305,7 +358,8 @@ body.ios-pwa-art-fullscreen.ios-pwa-art-landscape .art-fullscreen-web canvas {
 
 /* 水波纹缩放动画 - 第二层 (慢速脉冲) */
 @keyframes pulse-scale {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1);
     opacity: 0.4;
   }
@@ -317,7 +371,8 @@ body.ios-pwa-art-fullscreen.ios-pwa-art-landscape .art-fullscreen-web canvas {
 
 /* 主体徽章缩放动画 */
 @keyframes badge-scale {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1);
   }
   50% {
@@ -326,7 +381,8 @@ body.ios-pwa-art-fullscreen.ios-pwa-art-landscape .art-fullscreen-web canvas {
 }
 
 @keyframes reader-book-flip {
-  0%, 100% {
+  0%,
+  100% {
     transform: perspective(120px) rotateY(0deg) translateY(0);
   }
   30% {
@@ -350,7 +406,6 @@ body.ios-pwa-art-fullscreen.ios-pwa-art-landscape .art-fullscreen-web canvas {
   color: #d9924a;
 }
 
-
 /* TV 端遥控器焦点：深色选中 + 放大，而不是细边框 */
 .tv-focusable {
   position: relative;
@@ -360,12 +415,8 @@ body.ios-pwa-art-fullscreen.ios-pwa-art-landscape .art-fullscreen-web canvas {
   scroll-margin-right: 48px;
   transform-origin: center;
   scale: 1;
-  transition:
-    scale 180ms ease,
-    background-color 180ms ease,
-    color 180ms ease,
-    box-shadow 180ms ease,
-    opacity 180ms ease;
+  transition: scale 180ms ease, background-color 180ms ease, color 180ms ease,
+    box-shadow 180ms ease, opacity 180ms ease;
 }
 
 .tv-focusable:focus,
@@ -375,9 +426,7 @@ body.ios-pwa-art-fullscreen.ios-pwa-art-landscape .art-fullscreen-web canvas {
   scale: 1.055;
   background-color: rgba(15, 23, 42, 0.96) !important;
   color: #ffffff !important;
-  box-shadow:
-    0 18px 44px rgba(0, 0, 0, 0.68),
-    0 0 26px rgba(225, 29, 72, 0.38) !important;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.68), 0 0 26px rgba(225, 29, 72, 0.38) !important;
   z-index: 30;
 }
 
@@ -396,7 +445,11 @@ body.ios-pwa-art-fullscreen.ios-pwa-art-landscape .art-fullscreen-web canvas {
   position: absolute;
   inset: -3px;
   border-radius: inherit;
-  background: linear-gradient(135deg, rgba(255,255,255,0.22), rgba(225,29,72,0.28));
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.22),
+    rgba(225, 29, 72, 0.28)
+  );
   opacity: 0.45;
   pointer-events: none;
 }
@@ -491,8 +544,7 @@ html:not([data-loading-style]) .mtv-load-talisman {
   border: 2.5px solid var(--mtv-ink);
   border-radius: 3px;
   /* 不能裁切：进行中的光环/光点要能扩到格子外面 */
-  transition:
-    background 0.45s ease,
+  transition: background 0.45s ease,
     transform 0.34s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .mtv-panel svg {
@@ -500,9 +552,7 @@ html:not([data-loading-style]) .mtv-load-talisman {
   height: 22px;
   color: var(--mtv-ink);
   opacity: 0.22;
-  transition:
-    color 0.35s,
-    opacity 0.35s;
+  transition: color 0.35s, opacity 0.35s;
 }
 .mtv-panel span {
   font-size: 8px;
@@ -510,9 +560,7 @@ html:not([data-loading-style]) .mtv-load-talisman {
   letter-spacing: 0.06em;
   color: var(--mtv-ink);
   opacity: 0.22;
-  transition:
-    color 0.35s,
-    opacity 0.35s;
+  transition: color 0.35s, opacity 0.35s;
 }
 /* 已完成：整格填蓝，白图标 */
 .mtv-panel.on {
@@ -569,8 +617,11 @@ html:not([data-loading-style]) .mtv-load-talisman {
   position: absolute;
   inset: -6px;
   border-radius: 9px;
-  background:
-    radial-gradient(circle at 50% 0, var(--mtv-acc) 1.6px, transparent 2.4px),
+  background: radial-gradient(
+      circle at 50% 0,
+      var(--mtv-acc) 1.6px,
+      transparent 2.4px
+    ),
     radial-gradient(circle at 100% 50%, var(--mtv-acc) 1.6px, transparent 2.4px),
     radial-gradient(circle at 50% 100%, var(--mtv-acc) 1.6px, transparent 2.4px),
     radial-gradient(circle at 0 50%, var(--mtv-acc) 1.6px, transparent 2.4px),
@@ -681,7 +732,12 @@ html:not([data-loading-style]) .mtv-load-talisman {
     var(--mtv-acc) 0 0.7deg,
     transparent 0.7deg 15deg
   );
-  -webkit-mask: radial-gradient(circle, transparent 62%, #000 63% 70%, transparent 71%);
+  -webkit-mask: radial-gradient(
+    circle,
+    transparent 62%,
+    #000 63% 70%,
+    transparent 71%
+  );
   mask: radial-gradient(circle, transparent 62%, #000 63% 70%, transparent 71%);
   animation: mtv-spin 26s linear infinite;
 }
@@ -693,7 +749,12 @@ html:not([data-loading-style]) .mtv-load-talisman {
     var(--mtv-acc-hover) 0 7deg,
     transparent 7deg 18deg
   );
-  -webkit-mask: radial-gradient(circle, transparent 78%, #000 79% 86%, transparent 87%);
+  -webkit-mask: radial-gradient(
+    circle,
+    transparent 78%,
+    #000 79% 86%,
+    transparent 87%
+  );
   mask: radial-gradient(circle, transparent 78%, #000 79% 86%, transparent 87%);
   animation: mtv-spin 17s linear infinite reverse;
 }
@@ -751,19 +812,17 @@ html:not([data-loading-style]) .mtv-load-talisman {
   position: absolute;
   left: 50%;
   top: 50%;
-  margin: calc(var(--mtv-tal-s) * -8 / 150) 0 0 calc(var(--mtv-tal-s) * -6 / 150);
-  font-family: Georgia, 'Songti SC', 'Noto Serif CJK SC', 'Noto Serif SC', STSong,
-    SimSun, serif;
+  margin: calc(var(--mtv-tal-s) * -8 / 150) 0 0
+    calc(var(--mtv-tal-s) * -6 / 150);
+  font-family: Georgia, 'Songti SC', 'Noto Serif CJK SC', 'Noto Serif SC',
+    STSong, SimSun, serif;
   font-size: calc(var(--mtv-tal-s) * 12 / 150);
   font-weight: 600;
   color: var(--mtv-acc-hover);
   opacity: 0.26;
   transform: rotate(var(--a)) translateY(calc(var(--mtv-tal-s) * -63 / 150))
     rotate(calc(-1 * var(--a)));
-  transition:
-    opacity 0.4s,
-    color 0.4s,
-    text-shadow 0.4s;
+  transition: opacity 0.4s, color 0.4s, text-shadow 0.4s;
 }
 .mtv-rune.lit {
   opacity: 1;
