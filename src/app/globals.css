@@ -197,6 +197,61 @@ div[data-media-provider] video {
   background-color: #000 !important; /* 其余区域填充为黑色 */
 }
 
+/*
+ * iOS standalone PWA 的网页全屏。
+ * ArtPlayer 会在 fullscreenWeb 状态下把播放器节点挂到 body；普通页面的
+ * h-[300px]/h-[650px] 布局不能继续约束它，否则旋转或视口变化时会出现窄条画面。
+ * 只由播放页在 iOS PWA 全屏事件期间添加这两个 class，其他平台不受影响。
+ */
+html.ios-pwa-art-fullscreen,
+body.ios-pwa-art-fullscreen {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+}
+
+body.ios-pwa-art-fullscreen {
+  background: #000 !important;
+}
+
+body.ios-pwa-art-fullscreen > .art-fullscreen-web,
+body.ios-pwa-art-fullscreen .art-fullscreen-web {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: var(--ios-pwa-viewport-height, 100dvh) !important;
+  min-width: 100vw !important;
+  min-height: var(--ios-pwa-viewport-height, 100dvh) !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  transform: none !important;
+  z-index: 2147483000 !important;
+  background: #000 !important;
+}
+
+body.ios-pwa-art-fullscreen > .art-fullscreen-web .art-video-player,
+body.ios-pwa-art-fullscreen .art-fullscreen-web .art-video-player,
+body.ios-pwa-art-fullscreen > .art-fullscreen-web video,
+body.ios-pwa-art-fullscreen .art-fullscreen-web video,
+body.ios-pwa-art-fullscreen > .art-fullscreen-web canvas,
+body.ios-pwa-art-fullscreen .art-fullscreen-web canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+body.ios-pwa-art-fullscreen > .art-fullscreen-web video,
+body.ios-pwa-art-fullscreen .art-fullscreen-web video {
+  object-fit: contain !important;
+}
+
+body.ios-pwa-art-fullscreen > .art-fullscreen-web .art-control-bottom,
+body.ios-pwa-art-fullscreen .art-fullscreen-web .art-control-bottom {
+  padding-bottom: env(safe-area-inset-bottom) !important;
+}
+
 /* 隐藏移动端竖屏时的 pip 按钮 */
 @media (max-width: 768px) {
   .art-control-pip {

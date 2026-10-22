@@ -7440,6 +7440,11 @@ function PlayPageClient() {
       console.log('[设备检测] 非 iOS 设备:', { ua, hasTouch });
       return false;
     })();
+    const isIOSPwa = isIOS && typeof window !== 'undefined' && (
+      window.matchMedia('(display-mode: standalone)').matches ||
+      window.matchMedia('(display-mode: fullscreen)').matches ||
+      (navigator as any).standalone === true
+    );
 
     // 辅助函数：检测代理 URL 是否需要显式声明 m3u8 类型
     // Artplayer 通过 URL 扩展名自动检测类型，但代理 URL（如 /api/proxy-m3u8?url=...）没有 .m3u8 扩展名
@@ -8635,7 +8640,7 @@ function PlayPageClient() {
                   bottom: 0;
                   background: rgba(0, 0, 0, 0.6);
                   backdrop-filter: blur(4px);
-                  z-index: 1000;
+                  z-index: 2147483647;
                   display: flex;
                   align-items: center;
                   justify-content: center;
@@ -8811,10 +8816,8 @@ function PlayPageClient() {
               click: function () {
                 if (!artPlayerRef.current) return;
 
-                // 检测是否在 PWA 模式下
-                const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
-                  window.matchMedia('(display-mode: fullscreen)').matches ||
-                  (window.navigator as any).standalone === true;
+                // 当前自定义按钮仅在 iOS 上挂载，因此这里的 PWA 判断也必须限定为 iOS PWA。
+                const isPWA = isIOSPwa;
 
                 // 检查是否已经在原生全屏状态
                 const isInNativeFullscreen = !!(document.fullscreenElement || (document as any).webkitFullscreenElement);
@@ -8838,29 +8841,17 @@ function PlayPageClient() {
                   return;
                 }
 
-                // 如果已经在网页全屏状态，退出网页全屏
-                if (artPlayerRef.current.fullscreenWeb) {
-                  artPlayerRef.current.fullscreenWeb = false;
+                // iOS PWA 默认直接进入网页全屏；进入后再次点击按钮才打开模式菜单，
+                // 这样网页全屏是主路径，原生播放器只作为明确的手动兜底。
+                if (isPWA && !artPlayerRef.current.fullscreenWeb) {
+                  artPlayerRef.current.fullscreenWeb = true;
                   return;
                 }
 
-                // 如果在 PWA 模式下，直接使用容器全屏（可以隐藏状态栏）
-                if (isPWA) {
-                  const container = artPlayerRef.current.template.$container;
-                  if (container && container.webkitEnterFullscreen) {
-                    container.webkitEnterFullscreen().catch((err: Error) => {
-                      console.error('PWA 全屏失败:', err);
-                      // 如果失败，降级使用网页全屏
-                      artPlayerRef.current.fullscreenWeb = true;
-                    });
-                  } else {
-                    // 不支持原生全屏，使用网页全屏
-                    artPlayerRef.current.fullscreenWeb = true;
-                  }
-                  return;
-                }
-
-                // 非 PWA 模式：创建对话框（使用项目统一风格）
+                // 如果已经在网页全屏状态，非 PWA 按钮直接退出；PWA 进入模式菜单，方便切换到原生兜底。
+                const webFullscreenActionTitle = artPlayerRef.current.fullscreenWeb
+                  ? '退出网页全屏'
+                  : '网页全屏';
                 const dialog = document.createElement('div');
                 dialog.className = 'ios-fullscreen-dialog';
                 dialog.innerHTML = `
@@ -8874,7 +8865,7 @@ function PlayPageClient() {
                       选择全屏模式
                     </h3>
                     <p class="ios-fullscreen-dialog-subtitle">
-                      由于 iOS 系统限制，原生全屏会使用系统播放器，将无法显示弹幕及使用部分播放器功能。网页全屏可能无法完全占满屏幕，但可保留所有功能。
+                      由于 iOS 限制，网页全屏可能仍显示系统状态栏；优先保留弹幕、字幕与播放器效果。若网页全屏表现异常，可手动切换到系统原生播放器，但部分功能会不可用。
                     </p>
                   </div>
 
@@ -8890,7 +8881,7 @@ function PlayPageClient() {
                       </div>
                       <div class="ios-fullscreen-option-content">
                         <div class="ios-fullscreen-option-title">
-                          网页全屏
+                          ${webFullscreenActionTitle}
                           <span class="ios-fullscreen-option-badge">推荐</span>
                         </div>
                         <div class="ios-fullscreen-option-desc">
@@ -8929,7 +8920,7 @@ function PlayPageClient() {
                       <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
                       <path d="M12 16v-4m0-4h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                     </svg>
-                    <span>将网站添加到主屏幕（PWA）后，网页全屏可以完全全屏</span>
+                    <span>网页全屏会保留播放器效果；原生播放器仅作为网页全屏异常时的手动兜底。</span>
                   </div>
                 </div>
               `;
@@ -8949,26 +8940,56 @@ function PlayPageClient() {
                 buttons.forEach(button => {
                   button.addEventListener('click', () => {
                     const action = button.getAttribute('data-action');
+                    const player = artPlayerRef.current;
+
+                    if (!player) {
+                      dialog.remove();
+                      return;
+                    }
 
                     if (action === 'web') {
-                      // 网页全屏
-                      if (artPlayerRef.current) {
-                        artPlayerRef.current.fullscreenWeb = true;
-                      }
+                      // 网页全屏是默认路径；全屏中再次打开模式菜单并选择此项可退出网页全屏。
+                      player.fullscreenWeb = !player.fullscreenWeb;
                     } else if (action === 'native') {
-                      // 原生全屏（尝试使用浏览器的全屏 API）
-                      if (artPlayerRef.current && artPlayerRef.current.template.$video) {
-                        const videoElement = artPlayerRef.current.template.$video;
-                        if (videoElement.requestFullscreen) {
-                          videoElement.requestFullscreen();
-                        } else if ((videoElement as any).webkitEnterFullscreen) {
-                          (videoElement as any).webkitEnterFullscreen();
+                      // 原生全屏只作为用户主动选择的兜底，不自动降级。
+                      // 先退出网页全屏，避免两个全屏状态同时存在。
+                      if (player.fullscreenWeb) {
+                        player.fullscreenWeb = false;
+                      }
+
+                      const videoElement = player.template.$video as HTMLVideoElement | undefined;
+                      if (!videoElement) {
+                        console.warn('[iOS] 原生全屏失败：未找到 video 元素');
+                      } else {
+                        try {
+                          const requestFullscreen = (videoElement as any).requestFullscreen;
+                          if (typeof requestFullscreen === 'function') {
+                            const result = requestFullscreen.call(videoElement);
+                            if (result && typeof result.catch === 'function') {
+                              result.catch((error: Error) => {
+                                console.warn('[iOS] 标准原生全屏失败，尝试 WebKit 全屏:', error);
+                                const webkitEnterFullscreen = (videoElement as any).webkitEnterFullscreen;
+                                if (typeof webkitEnterFullscreen === 'function') {
+                                  webkitEnterFullscreen.call(videoElement);
+                                }
+                              });
+                            }
+                          } else {
+                            const webkitEnterFullscreen = (videoElement as any).webkitEnterFullscreen;
+                            if (typeof webkitEnterFullscreen === 'function') {
+                              webkitEnterFullscreen.call(videoElement);
+                            } else {
+                              console.warn('[iOS] 当前浏览器不支持原生视频全屏');
+                            }
+                          }
+                        } catch (error) {
+                          console.warn('[iOS] 原生全屏调用失败:', error);
                         }
                       }
                     }
 
                     // 关闭对话框
-                    document.body.removeChild(dialog);
+                    dialog.remove();
                   });
                 });
               },
@@ -9184,27 +9205,21 @@ function PlayPageClient() {
             });
           }
 
-          // iOS 设备：监听屏幕方向变化，自动调整全屏状态
-          if (isIOS && artPlayerRef.current) {
+          // iOS PWA 的尺寸变化由 refreshIOSPwaPlayerSize 处理；普通 iOS Safari 保留原有方向变化行为。
+          if (isIOS && !isIOSPwa && artPlayerRef.current) {
             const handleOrientationChange = () => {
               if (!artPlayerRef.current) return;
 
-              // 获取当前屏幕方向
               const isLandscape = window.matchMedia('(orientation: landscape)').matches;
               const isPortrait = window.matchMedia('(orientation: portrait)').matches;
-
               console.log('[iOS] 屏幕方向变化:', {
                 isLandscape,
                 isPortrait,
-                fullscreenWeb: artPlayerRef.current.fullscreenWeb
+                fullscreenWeb: artPlayerRef.current.fullscreenWeb,
               });
 
-              // 如果在网页全屏状态下旋转到横屏，切换到正常全屏
               if (artPlayerRef.current.fullscreenWeb && isLandscape) {
-                console.log('[iOS] 横屏模式：从网页全屏切换到正常全屏');
-                // 先退出网页全屏
                 artPlayerRef.current.fullscreenWeb = false;
-                // 延迟一下再进入正常全屏，确保布局已更新
                 setTimeout(() => {
                   if (artPlayerRef.current) {
                     artPlayerRef.current.fullscreenWeb = true;
@@ -9213,12 +9228,8 @@ function PlayPageClient() {
               }
             };
 
-            // 监听屏幕方向变化
             window.addEventListener('orientationchange', handleOrientationChange);
-            // 也监听 resize 事件（某些设备上更可靠）
             window.addEventListener('resize', handleOrientationChange);
-
-            // 清理函数
             artPlayerRef.current.on('destroy', () => {
               window.removeEventListener('orientationchange', handleOrientationChange);
               window.removeEventListener('resize', handleOrientationChange);
@@ -9361,11 +9372,57 @@ function PlayPageClient() {
           }
         });
 
-        // 监听网页全屏事件，控制导航栏显示隐藏
+        // 监听网页全屏事件，控制导航栏显示隐藏。
+        // iOS PWA 只通过 ArtPlayer 网页全屏进入，类名负责把 body 下的播放器固定到视口。
+        const syncIOSPwaFullscreen = (isFullscreen: boolean) => {
+          if (!isIOSPwa || typeof document === 'undefined') return;
+
+          document.documentElement.classList.toggle('ios-pwa-art-fullscreen', isFullscreen);
+          document.body.classList.toggle('ios-pwa-art-fullscreen', isFullscreen);
+          if (!isFullscreen) {
+            document.documentElement.style.removeProperty('--ios-pwa-viewport-height');
+          }
+        };
+
+                const refreshIOSPwaPlayerSize = () => {
+                  if (!isIOSPwa) return;
+
+                  const viewportHeight = window.visualViewport?.height || window.innerHeight;
+                  document.documentElement.style.setProperty(
+                    '--ios-pwa-viewport-height',
+                    `${Math.round(viewportHeight)}px`
+                  );
+                  if (!artPlayerRef.current?.fullscreenWeb) return;
+
+                  requestAnimationFrame(() => {
+                    if (!artPlayerRef.current?.fullscreenWeb) return;
+                    // ArtPlayer 自身负责重新计算 video、弹幕和控制栏尺寸；这里不退出再重进全屏。
+                    artPlayerRef.current.resize?.();
+                  });
+                };
+
         artPlayerRef.current.on('fullscreenWeb', (isFullscreen: boolean) => {
           console.log('网页全屏状态变化:', isFullscreen);
           setIsWebFullscreen(isFullscreen);
+          syncIOSPwaFullscreen(isFullscreen);
+          refreshIOSPwaPlayerSize();
         });
+
+        if (isIOSPwa) {
+          window.addEventListener('orientationchange', refreshIOSPwaPlayerSize);
+          window.addEventListener('resize', refreshIOSPwaPlayerSize);
+          window.visualViewport?.addEventListener('resize', refreshIOSPwaPlayerSize);
+          window.visualViewport?.addEventListener('scroll', refreshIOSPwaPlayerSize);
+
+          artPlayerRef.current.on('destroy', () => {
+            window.removeEventListener('orientationchange', refreshIOSPwaPlayerSize);
+            window.removeEventListener('resize', refreshIOSPwaPlayerSize);
+            window.visualViewport?.removeEventListener('resize', refreshIOSPwaPlayerSize);
+            window.visualViewport?.removeEventListener('scroll', refreshIOSPwaPlayerSize);
+            syncIOSPwaFullscreen(false);
+            document.documentElement.style.removeProperty('--ios-pwa-viewport-height');
+          });
+        }
 
         // 添加自定义热力图到播放器控制层
         if (!danmakuHeatmapDisabledRef.current) {
